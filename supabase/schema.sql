@@ -48,9 +48,12 @@ create index if not exists guesses_round_idx on guesses(round_id);
 alter table words   enable row level security;
 alter table rounds  enable row level security;
 alter table guesses enable row level security;
-drop policy if exists words_read on words;      create policy words_read   on words   for select to anon, authenticated using (true);
-drop policy if exists rounds_read on rounds;    create policy rounds_read  on rounds  for select to anon, authenticated using (true);
-drop policy if exists guesses_read on guesses;  create policy guesses_read on guesses for select to anon, authenticated using (true);
+do $$ begin if not exists (select 1 from pg_policies where tablename='words' and policyname='words_read') then
+  create policy words_read on words for select to anon, authenticated using (true); end if; end $$;
+do $$ begin if not exists (select 1 from pg_policies where tablename='rounds' and policyname='rounds_read') then
+  create policy rounds_read on rounds for select to anon, authenticated using (true); end if; end $$;
+do $$ begin if not exists (select 1 from pg_policies where tablename='guesses' and policyname='guesses_read') then
+  create policy guesses_read on guesses for select to anon, authenticated using (true); end if; end $$;
 -- answer 컬럼은 뷰 없이도 함수(reveal_answer)로만 노출하도록 컬럼 권한을 뺀다
 revoke select (answer) on rounds from anon, authenticated;
 
@@ -160,9 +163,12 @@ create index if not exists ox_answers_room_idx on ox_answers(room_code, q_index)
 alter table ox_rooms   enable row level security;
 alter table ox_players enable row level security;
 alter table ox_answers enable row level security;
-drop policy if exists ox_rooms_all on ox_rooms;     create policy ox_rooms_all   on ox_rooms   for all to anon, authenticated using (true) with check (true);
-drop policy if exists ox_players_all on ox_players; create policy ox_players_all on ox_players for all to anon, authenticated using (true) with check (true);
-drop policy if exists ox_answers_all on ox_answers; create policy ox_answers_all on ox_answers for all to anon, authenticated using (true) with check (true);
+do $$ begin if not exists (select 1 from pg_policies where tablename='ox_rooms' and policyname='ox_rooms_all') then
+  create policy ox_rooms_all on ox_rooms for all to anon, authenticated using (true) with check (true); end if; end $$;
+do $$ begin if not exists (select 1 from pg_policies where tablename='ox_players' and policyname='ox_players_all') then
+  create policy ox_players_all on ox_players for all to anon, authenticated using (true) with check (true); end if; end $$;
+do $$ begin if not exists (select 1 from pg_policies where tablename='ox_answers' and policyname='ox_answers_all') then
+  create policy ox_answers_all on ox_answers for all to anon, authenticated using (true) with check (true); end if; end $$;
 
 -- 하루 지난 방 정리 (진행자가 "방 만들기" 할 때 호출)
 create or replace function ox_cleanup() returns void language sql security definer set search_path = public as $$
