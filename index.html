@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23373282'/><circle cx='11' cy='11' r='3' fill='white'/><circle cx='21' cy='11' r='3' fill='white'/><circle cx='16' cy='16' r='3' fill='%23ED911A'/><circle cx='11' cy='21' r='3' fill='white'/><circle cx='21' cy='21' r='3' fill='white'/></svg>">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gaegu:wght@700&family=Jua&display=swap">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
@@ -134,7 +134,9 @@
   </div>
 </div>
 
-<script src="games.js"></script>
-<script src="app.js"></script>
+<script>
+  // 게임 목록·앱 스크립트는 캐시를 우회해 항상 최신으로 (배포 직후에도 새 게임이 바로 보이도록)
+  (function () { var v = Date.now(); ['games.js', 'app.js'].forEach(function (f) { document.write('<script src="' + f + '?v=' + v + '"><\/script>'); }); })();
+</script>
 </body>
 </html>
