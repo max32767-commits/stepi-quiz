@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>두근두근 조 추첨 — 조편성기</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#08080e;--surf:#111118;--surf2:#18181f;
+  --brd:rgba(255,255,255,0.09);--brd2:rgba(255,255,255,0.16);
+  --txt:#eeeef5;--mut:#6a6a88;--acc:#7b6ef6;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(123,110,246,0.035) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(123,110,246,0.035) 1px,transparent 1px);
+  background-size:48px 48px;pointer-events:none;z-index:0}
+
+.page{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:2rem 1.2rem 5rem}
+
+/* ── HEADER ── */
+.hdr{text-align:center;margin-bottom:2rem}
+.hdr h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(56px,10vw,88px);letter-spacing:6px;line-height:1;margin-bottom:4px}
+.hdr h1 span{color:var(--acc)}
+.hdr p{font-size:11px;color:var(--mut);letter-spacing:3px;text-transform:uppercase}
+
+/* ── SETUP ── */
+#setup{background:var(--surf);border:0.5px solid var(--brd2);border-radius:16px;padding:1.5rem;margin-bottom:1rem}
+.frow{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:1.1rem}
+.fld label{font-size:11px;color:var(--mut);letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:5px}
+input[type=number]{background:var(--surf2);border:0.5px solid var(--brd2);border-radius:8px;color:var(--txt);font-family:'Noto Sans KR',sans-serif;font-size:15px;padding:8px 12px;outline:none;width:82px}
+input[type=number]:focus{border-color:var(--acc)}
+.srow{display:flex;align-items:center;gap:12px;margin-bottom:1.1rem}
+.srow label{font-size:11px;color:var(--mut);letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap}
+input[type=range]{-webkit-appearance:none;appearance:none;width:160px;height:4px;padding:0;background:var(--surf2);border:none;border-radius:2px;cursor:pointer;outline:none;vertical-align:middle}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--acc);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--acc);border:none;cursor:pointer}
+.sval{font-size:13px;color:var(--acc);min-width:68px}
+textarea{width:100%;background:var(--surf2);border:0.5px solid var(--brd2);border-radius:8px;color:var(--txt);font-family:'Noto Sans KR',sans-serif;font-size:13px;padding:12px;resize:vertical;height:100px;outline:none;line-height:1.7;margin-bottom:1.1rem}
+textarea:focus{border-color:var(--acc)}
+textarea::placeholder{color:var(--mut)}
+.btn-go{display:block;width:100%;padding:14px;background:var(--acc);color:#fff;border:none;border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;cursor:pointer;transition:background .15s,transform .1s}
+.btn-go:hover{background:#6a5ee0}.btn-go:active{transform:scale(.98)}
+
+/* ── PROGRESS ── */
+.pbar-wrap{height:3px;background:var(--surf2);border-radius:2px;margin-bottom:1.2rem;overflow:hidden}
+.pbar{height:100%;width:0;background:var(--acc);border-radius:2px;transition:width .4s ease}
+.phase{text-align:center;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:var(--mut);margin-bottom:1rem;min-height:16px}
+
+/* ── COUNTDOWN ── */
+#cd{display:none;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:3.5rem 1rem;min-height:280px;
+  background:var(--surf);border:0.5px solid var(--brd2);border-radius:16px;margin-bottom:1rem}
+#cd-num{font-family:'Bebas Neue',sans-serif;font-size:130px;line-height:1;color:var(--acc);transition:transform .12s}
+#cd-msg{font-size:15px;color:var(--mut);margin-top:8px;letter-spacing:1px}
+
+/* ── ARENA ── */
+#arena-wrap{display:none;margin-bottom:1rem}
+#arena-top{background:var(--surf);border:0.5px solid var(--brd2);border-radius:16px;padding:1rem;margin-bottom:10px}
+#arena-label{font-size:11px;color:var(--mut);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+#arena-label span{color:var(--acc);font-variant-numeric:tabular-nums}
+/* bubble pool canvas */
+#pool{position:relative;height:260px;overflow:hidden;border-radius:10px;background:var(--bg)}
+
+/* spotlight ring that appears on selected bubble */
+.spotlight{position:absolute;border-radius:50%;pointer-events:none;z-index:5;
+  border:2px solid #fff;opacity:0;transition:opacity .1s}
+
+/* ── TEAM SLOTS ── */
+#slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.slot{background:var(--surf);border:0.5px solid var(--brd2);border-radius:12px;overflow:hidden;transition:border-color .3s}
+.slot-hd{padding:8px 12px;display:flex;align-items:center;justify-content:space-between}
+.slot-hd-name{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px}
+.slot-hd-cnt{font-size:11px;opacity:.65}
+.slot-body{padding:8px 10px;display:flex;flex-wrap:wrap;gap:4px;min-height:34px}
+.schip{padding:2px 8px;border-radius:14px;font-size:11px;font-weight:500;opacity:0;transform:scale(.5);transition:all .32s cubic-bezier(.34,1.56,.64,1)}
+.schip.in{opacity:1;transform:scale(1)}
+
+/* ── BUBBLE element ── */
+.bbl{position:absolute;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-weight:500;color:var(--txt);border:0.5px solid var(--brd2);
+  user-select:none;pointer-events:none;background:#1c1c28;
+  transition:box-shadow .2s}
+
+/* ── DONE ── */
+#done-btn{display:none;width:100%;padding:13px;background:transparent;color:var(--mut);
+  border:0.5px solid var(--brd2);border-radius:10px;font-family:'Noto Sans KR',sans-serif;
+  font-size:14px;cursor:pointer;transition:all .15s;margin-top:.5rem;letter-spacing:.5px}
+#done-btn:hover{background:var(--surf);color:var(--txt)}
+
+/* ── FLASH ── */
+.flash-ov{position:fixed;inset:0;background:var(--acc);opacity:0;pointer-events:none;z-index:999;transition:opacity .08s}
+
+/* speed classes on bubbles */
+.bbl.hot{border-color:rgba(123,110,246,.6);box-shadow:0 0 8px rgba(123,110,246,.4)}
+</style>
+</head>
+<body>
+<div class="flash-ov" id="fov"></div>
+<div class="page">
+
+  <div class="hdr">
+    <h1>두근두근 <span>조 추첨</span></h1><p>STEPI 조편성기 · 버블 풀에서 한 명씩 뽑아 조를 만듭니다</p>
+  </div>
+
+  <!-- SETUP -->
+  <div id="setup">
+    <div class="frow">
+      <div class="fld"><label>조당 인원</label><input type="number" id="gsize" value="5" min="1" max="50"/></div>
+    </div>
+    <div class="srow">
+      <label>추첨 속도</label>
+      <input type="range" id="speed" min="1" max="10" value="5" step="1"/>
+      <span class="sval" id="sval">보통</span>
+    </div>
+    <div class="fld">
+      <label>참가자 이름 (쉼표 구분 · 최대 100명)</label>
+      <textarea id="names" placeholder="예: 김병현, 라경민, 최다해, 명재홍, 김형철, 유민혜, 이은호, 이정준..."></textarea>
+    </div>
+    <button class="btn-go" onclick="begin()">추첨 시작</button>
+  </div>
+
+  <!-- THEATER -->
+  <div id="theater" style="display:none">
+    <div class="pbar-wrap"><div class="pbar" id="pb"></div></div>
+    <div class="phase" id="ph"></div>
+
+    <!-- COUNTDOWN -->
+    <div id="cd">
+      <div id="cd-num">3</div>
+      <div id="cd-msg"></div>
+    </div>
+
+    <!-- ARENA -->
+    <div id="arena-wrap">
+      <div id="arena-top">
+        <div id="arena-label">
+          <span>버블 풀</span>
+          <span id="pool-cnt"></span>
+        </div>
+        <div id="pool"></div>
+      </div>
+      <div id="slots"></div>
+    </div>
+
+    <button id="done-btn" onclick="resetAll()">↩ 다시 편성하기</button>
+  </div>
+</div>
+
+<script>
+/* ─── palette ─── */
+const PAL=[
+  {bg:'#7b6ef6',dk:'#1a1630'},{bg:'#5dd4a4',dk:'#092018'},
+  {bg:'#f06a50',dk:'#2a100c'},{bg:'#5aaff0',dk:'#081828'},
+  {bg:'#e06ab0',dk:'#240c1a'},{bg:'#80c44a',dk:'#101a04'},
+  {bg:'#f0b850',dk:'#261804'},{bg:'#e05050',dk:'#220808'},
+  {bg:'#50d4d4',dk:'#061a1a'},{bg:'#c090f0',dk:'#160c2c'},
+];
+const SLBLS=['극저속','매우 느림','느림','조금 느림','보통','조금 빠름','빠름','매우 빠름','초고속','광속'];
+
+let groups=[], allBubbles=[], T=[], rafId=null, speedVal=5;
+let pickQueue=[], pickIdx=0, isPicking=false, totalPicked=0, totalNames=0;
+
+const $=id=>document.getElementById(id);
+const show=id=>{$(id).style.display='block'};
+const showFlex=id=>{$(id).style.display='flex'};
+const hide=id=>{$(id).style.display='none'};
+const setBar=p=>{$('pb').style.width=p+'%'};
+const setPhase=t=>{$('ph').textContent=t};
+function flash(col){
+  const f=$('fov');
+  f.style.background=col||'#7b6ef6';
+  f.style.opacity='0.16';
+  setTimeout(()=>{f.style.opacity='0'},110);
+}
+
+$('speed').addEventListener('input',function(){
+  speedVal=+this.value;
+  $('sval').textContent=SLBLS[speedVal-1];
+});
+
+function getNames(){
+  return $('names').value.split(',').map(s=>s.trim()).filter(Boolean).slice(0,100);
+}
+
+/* ── BEGIN ── */
+function begin(){
+  const names=getNames();
+  if(!names.length){alert('이름을 입력해주세요');return;}
+  const gs=Math.max(1,+$('gsize').value||5);
+  const sh=[...names].sort(()=>Math.random()-0.5);
+  groups=[];
+  for(let i=0;i<sh.length;i+=gs) groups.push(sh.slice(i,i+gs));
+  totalNames=names.length;
+  totalPicked=0;
+
+  /* build sequential pick order: slot 0 member 0, slot 1 member 0 … round-robin */
+  pickQueue=[];
+  const maxMembers=Math.max(...groups.map(g=>g.length));
+  for(let m=0;m<maxMembers;m++){
+    for(let g=0;g<groups.length;g++){
+      if(groups[g][m]!==undefined) pickQueue.push({gi:g,pi:m,name:groups[g][m]});
+    }
+  }
+  pickIdx=0;
+
+  hide('setup'); show('theater');
+  hide('cd'); hide('arena-wrap');
+  runCountdown();
+}
+
+/* ── COUNTDOWN ── */
+function runCountdown(){
+  showFlex('cd'); setBar(8); setPhase('준비');
+  const steps=[
+    {n:'3',m:'잠시 후 추첨이 시작됩니다'},
+    {n:'2',m:'두근두근 — 어느 조에 들어갈까?'},
+    {n:'1',m:'한 명씩 차례로 추첨됩니다'},
+    {n:'GO!',m:'추첨 시작!'}
+  ];
+  let i=0;
+  const ne=$('cd-num'), me=$('cd-msg');
+  ne.textContent=steps[0].n; me.textContent=steps[0].m;
+  const tick=()=>{
+    i++;
+    if(i>=steps.length){flash();hide('cd');initArena();return;}
+    ne.style.transform='scale(1.5)';
+    ne.textContent=steps[i].n; me.textContent=steps[i].m;
+    setTimeout(()=>{ne.style.transform='scale(1)'},140);
+    setBar(8+i*12);
+    T.push(setTimeout(tick,i<steps.length-1?850:480));
+  };
+  T.push(setTimeout(tick,850));
+}
+
+/* ── BUILD ARENA ── */
+function initArena(){
+  show('arena-wrap'); setBar(45); setPhase('버블 풀에서 추첨 중...');
+
+  /* build slot cards */
+  const slotsEl=$('slots');
+  slotsEl.innerHTML='';
+  groups.forEach((_,gi)=>{
+    const c=PAL[gi%PAL.length];
+    const d=document.createElement('div');
+    d.className='slot'; d.id='slot-'+gi;
+    d.style.borderColor=c.bg+'44';
+    d.style.background=c.dk;
+    d.innerHTML=`<div class="slot-hd" style="background:${c.bg}22;border-bottom:0.5px solid ${c.bg}44">
+      <span class="slot-hd-name" style="color:${c.bg}">${gi+1}조</span>
+      <span class="slot-hd-cnt" id="sc-${gi}" style="color:${c.bg}">0/${groups[gi].length}</span>
+    </div><div class="slot-body" id="sb-${gi}"></div>`;
+    slotsEl.appendChild(d);
+  });
+
+  /* spawn bubbles in pool */
+  const pool=$('pool');
+  pool.innerHTML=''; allBubbles=[];
+  const W=pool.clientWidth||800, H=260;
+
+  /* use ALL names from pickQueue, each bubble = one person */
+  pickQueue.forEach(item=>{
+    const name=item.name;
+    const size=Math.min(64,Math.max(36,52-Math.max(0,name.length-4)*2));
+    const div=document.createElement('div');
+    div.className='bbl';
+    div.style.width=div.style.height=size+'px';
+    div.style.fontSize=(size>48?10:9)+'px';
+    div.textContent=name.length>5?name.slice(0,4)+'·':name;
+    const x=Math.random()*(W-size), y=Math.random()*(H-size);
+    div.style.left=x+'px'; div.style.top=y+'px';
+    pool.appendChild(div);
+    const ang=Math.random()*Math.PI*2, spd=1+Math.random()*1.8;
+    allBubbles.push({div,size,x,y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,name,gi:item.gi,pi:item.pi,picked:false});
+  });
+
+  $('pool-cnt').textContent=`${totalNames}명 대기`;
+  runPool();
+}
+
+/* ── PHYSICS LOOP ── */
+function runPool(){
+  const pool=$('pool');
+  const W=pool.clientWidth||800, H=260;
+
+  const physics=()=>{
+    allBubbles.forEach(b=>{
+      if(b.picked) return;
+      b.x+=b.vx; b.y+=b.vy;
+      b.vx+=(Math.random()-.5)*.22; b.vy+=(Math.random()-.5)*.22;
+      const mv=1.6+speedVal*.28;
+      b.vx=Math.max(-mv,Math.min(mv,b.vx));
+      b.vy=Math.max(-mv,Math.min(mv,b.vy));
+      if(b.x<=0){b.x=0;b.vx=Math.abs(b.vx);}
+      if(b.x>=W-b.size){b.x=W-b.size;b.vx=-Math.abs(b.vx);}
+      if(b.y<=0){b.y=0;b.vy=Math.abs(b.vy);}
+      if(b.y>=H-b.size){b.y=H-b.size;b.vy=-Math.abs(b.vy);}
+      b.div.style.left=b.x+'px';
+      b.div.style.top=b.y+'px';
+    });
+    rafId=requestAnimationFrame(physics);
+  };
+  rafId=requestAnimationFrame(physics);
+
+  /* delay before first pick */
+  T.push(setTimeout(doPick, 1200));
+}
+
+/* ── PICK ONE ── */
+function doPick(){
+  if(isPicking) return;
+  if(pickIdx>=pickQueue.length){ finalize(); return; }
+  isPicking=true;
+
+  const item=pickQueue[pickIdx];
+  const bub=allBubbles.find(b=>!b.picked && b.name===item.name && b.gi===item.gi);
+  if(!bub){pickIdx++;isPicking=false;T.push(setTimeout(doPick,80));return;}
+
+  /* PHASE 1: spotlight — flash bubble, freeze-ish */
+  const c=PAL[item.gi%PAL.length];
+  bub.div.style.transition='background .25s,border-color .25s,box-shadow .25s,width .25s,height .25s,font-size .25s';
+  bub.div.style.background=c.dk;
+  bub.div.style.borderColor=c.bg;
+  bub.div.style.boxShadow=`0 0 18px ${c.bg}cc, 0 0 40px ${c.bg}55`;
+  bub.div.style.zIndex='10';
+  /* glow pulse */
+  bub.div.classList.add('hot');
+  /* slow this bubble */
+  bub.vx*=.15; bub.vy*=.15;
+
+  /* spotlight delay varies by speed */
+  const spotDelay=[1800,1500,1200,1000,800,640,480,360,240,130][speedVal-1];
+
+  T.push(setTimeout(()=>{
+    /* PHASE 2: grow bubble slightly */
+    bub.div.style.width=bub.div.style.height=(bub.size*1.35)+'px';
+    bub.div.style.fontSize=(bub.size>44?12:11)+'px';
+    bub.div.textContent=item.name; /* show full name */
+    flash(c.bg);
+
+    T.push(setTimeout(()=>{
+      /* PHASE 3: fly into slot */
+      bub.picked=true;
+      bub.vx=0; bub.vy=0;
+
+      const pool=$('pool');
+      const slot=document.getElementById('slot-'+item.gi);
+      const pRect=pool.getBoundingClientRect();
+      const sRect=slot.getBoundingClientRect();
+
+      /* target: center of slot card */
+      const tx=sRect.left+sRect.width/2 - pRect.left - bub.size*1.35/2;
+      const ty=sRect.top+sRect.height/2  - pRect.top  - bub.size*1.35/2;
+
+      bub.div.style.transition='left .55s cubic-bezier(.4,0,.2,1),top .55s cubic-bezier(.4,0,.2,1),opacity .55s,transform .55s,width .3s,height .3s';
+      bub.div.style.left=tx+'px';
+      bub.div.style.top=ty+'px';
+      bub.div.style.transform='scale(.4)';
+      bub.div.style.opacity='0';
+
+      /* after fly: add chip to slot */
+      T.push(setTimeout(()=>{
+        bub.div.style.display='none';
+        const sb=document.getElementById('sb-'+item.gi);
+        const chip=document.createElement('span');
+        chip.className='schip';
+        chip.style.cssText=`background:${c.bg}28;color:${c.bg};border:0.5px solid ${c.bg}55`;
+        chip.textContent=item.name;
+        sb.appendChild(chip);
+        requestAnimationFrame(()=>requestAnimationFrame(()=>chip.classList.add('in')));
+
+        /* update counter */
+        totalPicked++;
+        const filled=groups[item.gi].filter((_,pi)=>pi<=item.pi).length;
+        document.getElementById('sc-'+item.gi).textContent=
+          totalPicked+'/'+totalNames;
+        $('pool-cnt').textContent=`${totalNames-totalPicked}명 대기`;
+        setBar(45+Math.round((totalPicked/totalNames)*52));
+        setPhase(`${totalPicked}번째 배정 — ${item.gi+1}조에 ${item.name}!`);
+
+        /* slot highlight flash */
+        slot.style.borderColor=c.bg+'cc';
+        T.push(setTimeout(()=>{slot.style.borderColor=c.bg+'44'},400));
+
+        pickIdx++;
+        isPicking=false;
+
+        const nextDelay=[1600,1300,1050,850,650,490,350,250,160,80][speedVal-1];
+        if(pickIdx<pickQueue.length) T.push(setTimeout(doPick,nextDelay));
+        else T.push(setTimeout(finalize,600));
+      },580));
+    },300));
+  },spotDelay));
+}
+
+/* ── FINALIZE ── */
+function finalize(){
+  if(rafId){cancelAnimationFrame(rafId);rafId=null;}
+  setBar(100); setPhase('모든 조 편성 완료!');
+  flash('#5dd4a4');
+  show('done-btn');
+}
+
+/* ── RESET ── */
+function resetAll(){
+  T.forEach(clearTimeout); T=[];
+  if(rafId){cancelAnimationFrame(rafId);rafId=null;}
+  groups=[];allBubbles=[];pickQueue=[];pickIdx=0;isPicking=false;totalPicked=0;
+  show('setup'); hide('theater');
+  $('pb').style.width='0'; $('ph').textContent='';
+  hide('done-btn');
+}
+</script>
+<script src="../../shared/home.js"></script>
+</body>
+</html>
