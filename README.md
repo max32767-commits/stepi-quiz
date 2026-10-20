@@ -22,13 +22,15 @@
 1. 저장소 Settings → Pages → Build and deployment: **Deploy from a branch**, Branch `main` / `(root)` → Save
 2. 1~2분 뒤 위 주소로 접속
 
-## 멀티플레이 설정 (OX 퀴즈·꼬멘틀)
+## 멀티플레이 설정 (OX 퀴즈·꼬멘틀) — 설정 완료
 
-1. [supabase.com](https://supabase.com)에서 무료 프로젝트 생성
-2. SQL Editor에 `supabase/schema.sql` 전체를 붙여넣고 Run
-3. Project Settings → API의 **Project URL**과 **anon public** 키를 `shared/supabase-config.js`에 입력 후 커밋
-   - anon 키는 공개돼도 되는 키입니다. **service_role 키는 절대 넣지 마세요.**
-4. (꼬멘틀만) 단어 벡터 업로드 — `supabase/prepare_vectors.py` 상단 설명대로 한 번 실행 (fastText `cc.ko.300.vec.gz` 필요)
+Supabase 프로젝트 `stepi-quiz`에 연결돼 있고(`shared/supabase-config.js`), 스키마와 꼬멘틀 단어 벡터(68,550단어 · 정답 후보 3,260개)까지 올라가 있어 바로 동작합니다.
+
+다른 프로젝트로 옮길 때:
+1. SQL Editor에 `supabase/schema.sql` 전체를 붙여넣고 Run
+2. Project Settings → API의 **Project URL**과 **publishable(anon)** 키를 `shared/supabase-config.js`에 입력 후 커밋
+   - 공개돼도 되는 키입니다. **service_role 키는 절대 넣지 마세요.**
+3. (꼬멘틀만) 단어 벡터 업로드 — `supabase/upload_words.py` 상단 설명대로 한 번 실행
 
 > 레크리에이션용이라 로그인 없이 누구나 쓰도록 DB 정책을 열어 두었습니다. 행사 후에는 Supabase 프로젝트를 Pause 해 두세요.
 

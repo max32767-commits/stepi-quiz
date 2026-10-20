@@ -65,7 +65,7 @@ begin
   select id into r from rounds where finished_at is null order by id desc limit 1;
   if r is not null then return r; end if;
   select word into w from words where candidate order by random() limit 1;
-  if w is null then raise exception '단어 벡터가 아직 없습니다. scripts/prepare_vectors.py 를 먼저 실행하세요.'; end if;
+  if w is null then raise exception '단어 벡터가 아직 없습니다. supabase/upload_words.py 를 먼저 실행하세요.'; end if;
   insert into rounds(answer, created_by) values (w, p_player) returning id into r;
   return r;
 end $$;
@@ -75,12 +75,13 @@ create or replace function round_benchmarks(p_round bigint)
 returns json language plpgsql security definer set search_path = public as $$
 declare a vector(300); t1 real; t10 real; t1000 real;
 begin
+  perform set_config('enable_indexscan', 'off', true);  -- 정확한 순위를 위해 전체 스캔(수만 단어, 수십 ms)
   select w.embedding into a from rounds r join words w on w.word = r.answer where r.id = p_round;
   if a is null then return null; end if;
   select max(case when rn=1 then s end), max(case when rn=10 then s end), max(case when rn=1000 then s end)
     into t1, t10, t1000
   from (select 1 - (embedding <=> a) as s, row_number() over (order by embedding <=> a) as rn
-        from words where embedding <=> a > 0 order by embedding <=> a limit 1000) x;
+        from (select embedding from words where embedding <=> a > 0 order by embedding <=> a limit 1000) k) x;
   return json_build_object('top1', t1, 'top10', t10, 'top1000', t1000);
 end $$;
 
@@ -89,6 +90,7 @@ create or replace function make_guess(p_round bigint, p_player text, p_word text
 returns json language plpgsql security definer set search_path = public as $$
 declare a vector(300); ans text; e vector(300); sim real; rk int; fin timestamptz; w text := trim(p_word);
 begin
+  perform set_config('enable_indexscan', 'off', true);
   select answer, finished_at into ans, fin from rounds where id = p_round;
   if ans is null then raise exception '라운드가 없습니다'; end if;
   if fin is not null then raise exception '이미 끝난 라운드입니다.'; end if;
@@ -100,7 +102,8 @@ begin
   else
     select rn into rk from (
       select word, row_number() over (order by embedding <=> a) as rn
-      from words where word <> ans order by embedding <=> a limit 1000) x where x.word = w;
+      from (select word, embedding from words where word <> ans order by embedding <=> a limit 1000) k) x
+    where x.word = w;
   end if;
   insert into guesses(round_id, player, word, similarity, rank) values (p_round, p_player, w, sim, rk)
     on conflict (round_id, player, word) do nothing;
