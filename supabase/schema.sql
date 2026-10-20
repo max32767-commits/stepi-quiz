@@ -190,3 +190,36 @@ begin
 end $$;
 alter table ox_rooms replica identity full;
 alter table ox_players replica identity full;
+
+-- ------------------------------------------------------------
+-- 3. 꼬멘틀 진행자 — 정답 직접 지정 (games/kkomentle/host.html)
+--    PIN 을 걸고 싶으면 SQL Editor 에서:
+--      insert into private_settings(key,value) values ('kkomentle_pin','1234') on conflict (key) do update set value=excluded.value;
+-- ------------------------------------------------------------
+create table if not exists private_settings (key text primary key, value text not null);
+alter table private_settings enable row level security;   -- 정책 없음: 클라이언트에서 읽기·쓰기 불가
+
+create or replace function start_round(p_word text, p_pin text default null, p_player text default null)
+returns bigint language plpgsql security definer set search_path = public as $$
+declare w text := trim(p_word); pin text; r bigint;
+begin
+  select value into pin from private_settings where key = 'kkomentle_pin';
+  if pin is not null and (p_pin is null or p_pin <> pin) then raise exception 'PIN이 틀렸습니다'; end if;
+  if w is null or w = '' then
+    select word into w from words where candidate order by random() limit 1;
+  elsif not exists (select 1 from words where word = w) then
+    raise exception '사전에 없는 단어라 정답으로 쓸 수 없습니다: %', w;
+  end if;
+  update rounds set finished_at = now(), gave_up = true where finished_at is null;
+  insert into rounds(answer, created_by) values (w, p_player) returning id into r;
+  return r;
+end $$;
+
+create or replace function round_status()
+returns json language sql security definer set search_path = public as $$
+  select json_build_object('id', r.id, 'created_at', r.created_at, 'guesses', (select count(*) from guesses g where g.round_id = r.id),
+                           'players', (select count(distinct player) from guesses g where g.round_id = r.id),
+                           'has_pin', exists(select 1 from private_settings where key = 'kkomentle_pin'))
+  from rounds r where r.finished_at is null order by r.id desc limit 1;
+$$;
+grant execute on function start_round(text, text, text), round_status() to anon, authenticated;

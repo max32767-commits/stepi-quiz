@@ -35,6 +35,12 @@ Supabase 프로젝트 `stepi-quiz`에 연결돼 있고(`shared/supabase-config.j
 
 > 레크리에이션용이라 로그인 없이 누구나 쓰도록 DB 정책을 열어 두었습니다. 행사 후에는 Supabase 프로젝트를 Pause 해 두세요.
 
+## 꼬멘틀 사용법
+
+- 참가자: `games/kkomentle/` 에서 이름 입력 후 단어 추측. 진행 중 라운드가 없으면 랜덤 정답으로 자동 시작됩니다.
+- 진행자: `games/kkomentle/host.html` 에서 **정답 단어를 직접 넣고** 새 라운드를 열 수 있습니다(사전에 있는 단어만 가능, 앞글자로 찾기 지원). 비우고 열면 랜덤 정답.
+- 진행자 페이지에 PIN을 걸려면 SQL Editor에서 한 줄: `insert into private_settings(key,value) values ('kkomentle_pin','1234');`
+
 ## OX 서바이벌 퀴즈 사용법
 
 - 진행자: `games/ox/host.html` 을 큰 화면에 띄우고 문제 입력(한 줄에 `문제|O`) → **방 만들기** → 참가자 입장 확인 → **게임 시작**
