@@ -39,6 +39,7 @@ Supabase 프로젝트 `stepi-quiz`에 연결돼 있고(`shared/supabase-config.j
 
 - 참가자: `games/kkomentle/` 에서 이름 입력 후 단어 추측. 진행 중 라운드가 없으면 랜덤 정답으로 자동 시작됩니다.
 - 진행자: `games/kkomentle/host.html` 에서 **정답 단어를 직접 넣고** 새 라운드를 열 수 있습니다(사전에 있는 단어만 가능, 앞글자로 찾기 지원). 비우고 열면 랜덤 정답.
+- 사전에 없는 단어(예: 연찬회)를 정답으로 쓰려면: `supabase/make_word_sql.py` 로 SQL을 만들어 SQL Editor에서 실행 (벡터 파일 필요). 이미 추가된 STEPI 단어: 연찬회·워크숍·과학기술정책연구원·세종시·연구원·팀장·단합대회·회식·야유회
 - 진행자 페이지에 PIN을 걸려면 SQL Editor에서 한 줄: `insert into private_settings(key,value) values ('kkomentle_pin','1234');`
 
 ## OX 서바이벌 퀴즈 사용법
