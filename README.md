@@ -1,26 +1,46 @@
-# stepi-quiz — 랜덤 게임 페이지 모음
+# STEPI 랜덤 게임
 
-워크숍·회식·행사 자리에서 진행자가 화면 하나 띄워 놓고 바로 쓰는 간단한 게임 페이지들을 모아 둔 저장소입니다. 설치나 빌드 없이 브라우저에서 바로 열리고, 사진이나 입력값은 브라우저 안에서만 처리되며 서버로 올라가지 않습니다.
+과학기술정책연구원(STEPI) 레크리에이션 게임 모음. 프레임워크·빌드 없이 HTML/CSS/JS만으로 만들어 **GitHub Pages에서 바로 동작**합니다.
 
-실행: https://max32767-commits.github.io/stepi-quiz/
+- 허브: `https://max32767-commits.github.io/stepi-quiz/`
+- 진행자는 노트북을 큰 화면에 띄워 진행하고, 참가자는 휴대폰으로 접속합니다.
+- 단발성 게임이라 결과를 저장하지 않습니다. 여러 명이 동시에 접속하는 게임만 Supabase(무료)를 씁니다.
 
-## 게임 목록
+## 게임
 
-| 게임 | 설명 | 경로 |
-|---|---|---|
-| 확대 사진 퀴즈 | 사진의 아주 작은 조각부터 보여주고 "더 보기"를 누를 때마다 조금씩 넓혀 가며 맞히는 게임. 빨리 맞힐수록 높은 점수. | `index.html` |
+| 게임 | 방식 | DB | 설명 |
+|---|---|---|---|
+| 🎱 마블 룰렛 `games/marble` | 진행자 혼자 | 없음 | 구슬이 맵을 굴러 내려와 결승선 순서로 당첨자 추첨 (3D) |
+| 🔍 확대 사진 퀴즈 `games/zoom` | 진행자 혼자 | 없음 | 사진을 단계별로 넓혀 보여주며 맞히기 |
+| ⭕ OX 서바이벌 퀴즈 `games/ox` | 진행자 큰 화면 + 참가자 휴대폰 | Supabase | 폰으로 O/X 선택, 실시간 집계, 탈락 서바이벌 |
+| 🧠 꼬멘틀 `games/kkomentle` | 여럿이 휴대폰 | Supabase | 단어 의미 유사도 추측 협동 게임 |
 
-(새 게임은 이 표에 한 줄씩 추가)
+새 게임 추가: `games/<id>/index.html` 폴더를 만들고 `games.js` 배열에 한 줄 추가. 각 게임 페이지 끝에 `<script src="../../shared/home.js"></script>`를 넣으면 "랜덤 게임 홈" 버튼이 붙습니다.
 
-## 공통 원칙
+## 배포 (GitHub Pages)
 
-- 게임 하나 = HTML 파일 하나. CSS·JS를 한 파일 안에 넣어 복사만으로 옮길 수 있게 유지
-- 진행자 모드 기본: 입력창 없이 버튼 몇 개로 진행, 여럿이 소리 내어 맞히는 상황에 맞춤
-- 휴대폰 세로 화면과 빔프로젝터(가로) 양쪽에서 보이도록 반응형
-- 외부 서버·로그인·데이터 저장 없음
+1. 저장소 Settings → Pages → Build and deployment: **Deploy from a branch**, Branch `main` / `(root)` → Save
+2. 1~2분 뒤 위 주소로 접속
 
-## 추가 방법
+## 멀티플레이 설정 (OX 퀴즈·꼬멘틀)
 
-1. 저장소 루트에 `게임이름.html` 파일을 만든다 (또는 폴더 `게임이름/index.html`).
-2. 위 게임 목록 표에 한 줄 추가한다.
-3. `main`에 푸시하면 GitHub Pages에 자동 반영된다.
+1. [supabase.com](https://supabase.com)에서 무료 프로젝트 생성
+2. SQL Editor에 `supabase/schema.sql` 전체를 붙여넣고 Run
+3. Project Settings → API의 **Project URL**과 **anon public** 키를 `shared/supabase-config.js`에 입력 후 커밋
+   - anon 키는 공개돼도 되는 키입니다. **service_role 키는 절대 넣지 마세요.**
+4. (꼬멘틀만) 단어 벡터 업로드 — `supabase/prepare_vectors.py` 상단 설명대로 한 번 실행 (fastText `cc.ko.300.vec.gz` 필요)
+
+> 레크리에이션용이라 로그인 없이 누구나 쓰도록 DB 정책을 열어 두었습니다. 행사 후에는 Supabase 프로젝트를 Pause 해 두세요.
+
+## OX 서바이벌 퀴즈 사용법
+
+- 진행자: `games/ox/host.html` 을 큰 화면에 띄우고 문제 입력(한 줄에 `문제|O`) → **방 만들기** → 참가자 입장 확인 → **게임 시작**
+- 참가자: QR을 찍거나 `games/ox/play.html` 에서 4자리 코드 + 이름 입력
+- **문제 내기 → 정답 공개 → 다음 문제** 순서로 진행. 틀리거나 미응답이면 탈락, 전원 탈락 시 자동 부활(옵션).
+
+## 로컬 실행
+
+```
+python3 -m http.server 8000   # http://localhost:8000
+```
+(`file://`로 열어도 되지만, Supabase를 쓰는 게임은 http(s)로 열어야 합니다.)

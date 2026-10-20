@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<title>OX 서바이벌 퀴즈 — 참가</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="ox.css">
+</head>
+<body>
+<div class="play">
+  <div class="topbar" style="border-radius:14px;border:1px solid var(--line)">
+    <a class="brand" href="../../"><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>STEPI</a>
+    <span class="pill">⭕❌ OX 퀴즈</span>
+  </div>
+
+  <!-- 입장 -->
+  <section id="join" class="card">
+    <h2>참가하기</h2>
+    <p class="muted">큰 화면에 보이는 4자리 코드와 이름을 넣으세요.</p>
+    <input class="code" id="code" inputmode="numeric" maxlength="4" placeholder="0000" style="margin-bottom:10px">
+    <input id="name" maxlength="12" placeholder="이름 (큰 화면에 표시돼요)" style="margin-bottom:14px" enterkeyhint="go">
+    <button class="btn orange" id="go">입장</button>
+    <p class="muted" id="join-msg" style="margin:10px 0 0"></p>
+  </section>
+
+  <!-- 대기 -->
+  <section id="wait" class="card hidden" style="text-align:center;padding:40px 20px">
+    <div style="font-size:52px">🙋</div>
+    <h2 id="wait-name"></h2>
+    <p class="muted">입장했어요! 진행자가 시작할 때까지 기다려 주세요.</p>
+    <p><span class="badge alive">참가 중</span></p>
+  </section>
+
+  <!-- 문제 -->
+  <section id="q" class="hidden" style="display:flex;flex-direction:column;gap:12px;flex:1">
+    <div class="card" style="padding:16px"><div class="muted" id="q-no" style="font-weight:700;color:var(--orange)"></div><div class="qtext" id="q-text"></div></div>
+    <div class="oxpad">
+      <button class="o" id="pick-o">O</button>
+      <button class="x" id="pick-x">X</button>
+    </div>
+    <div class="status" id="q-status" style="padding:12px"></div>
+  </section>
+
+  <!-- 결과 -->
+  <section id="r" class="card hidden" style="text-align:center;padding:36px 20px">
+    <div style="font-size:60px" id="r-icon"></div>
+    <div class="status" id="r-text" style="padding:10px"></div>
+    <p class="muted" id="r-sub"></p>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../../shared/supabase-config.js"></script>
+<script src="../../shared/supabase-client.js"></script>
+<script>
+if (!window.sb) throw new Error('Supabase 설정 없음');
+const $ = id => document.getElementById(id);
+const qs = new URLSearchParams(location.search);
+let code = (qs.get('room') || '').replace(/\D/g, '').slice(0, 4), me = null, room = null, myChoice = null, lastQ = -1, channel = null;
+$('code').value = code;
+try { $('name').value = localStorage.getItem('ox:name') || ''; } catch (e) {}
+if (code) $('name').focus(); else $('code').focus();
+$('name').onkeydown = e => { if (e.key === 'Enter') $('go').click(); };
+
+// ---- 입장 ----
+$('go').onclick = async () => {
+  code = $('code').value.replace(/\D/g, '');
+  const name = $('name').value.trim().slice(0, 12);
+  if (code.length !== 4) return $('join-msg').textContent = '코드 4자리를 입력하세요.';
+  if (!name) return $('join-msg').textContent = '이름을 입력하세요.';
+  $('go').disabled = true; $('join-msg').textContent = '입장 중…';
+  const { data: r } = await sb.from('ox_rooms').select('*').eq('code', code).maybeSingle();
+  if (!r) { $('go').disabled = false; return $('join-msg').textContent = '그 코드의 방이 없어요. 큰 화면의 코드를 다시 확인하세요.'; }
+  // 같은 기기에서 다시 들어오면 기존 참가자 재사용
+  let pid = null; try { pid = localStorage.getItem('ox:pid:' + code); } catch (e) {}
+  if (pid) { const { data: p } = await sb.from('ox_players').select('*').eq('id', pid).eq('room_code', code).maybeSingle(); if (p) { me = p; if (p.name !== name) { await sb.from('ox_players').update({ name }).eq('id', p.id); me.name = name; } } }
+  if (!me) {
+    const { data: p, error } = await sb.from('ox_players').insert({ room_code: code, name }).select().single();
+    if (error) { $('go').disabled = false; return $('join-msg').textContent = '입장 실패: ' + error.message; }
+    me = p;
+  }
+  try { localStorage.setItem('ox:name', name); localStorage.setItem('ox:pid:' + code, me.id); } catch (e) {}
+  room = r; $('wait-name').textContent = name + ' 님';
+  subscribe(); applyRoom();
+};
+
+// ---- 실시간 ----
+function subscribe() {
+  channel = sb.channel('ox-play-' + code + '-' + me.id)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ox_rooms', filter: 'code=eq.' + code }, p => { room = p.new; applyRoom(); })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ox_players', filter: 'id=eq.' + me.id }, p => { me = p.new; applyRoom(); })
+    .subscribe();
+  setInterval(async () => {   // 폴링 보강(휴대폰 절전 등으로 소켓이 끊겨도 따라오게)
+    const { data: r } = await sb.from('ox_rooms').select('*').eq('code', code).maybeSingle();
+    const { data: p } = await sb.from('ox_players').select('*').eq('id', me.id).maybeSingle();
+    if (p) me = p;
+    if (r && (r.updated_at !== room?.updated_at)) { room = r; applyRoom(); } else if (p) applyRoom();
+  }, 3000);
+}
+
+// ---- 화면 ----
+function show(id) { ['join', 'wait', 'q', 'r'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
+function applyRoom() {
+  if (!room) return;
+  if (room.phase === 'lobby') { show('wait'); lastQ = -1; return; }
+  if (room.phase === 'end') {
+    show('r');
+    $('r-icon').textContent = me.alive ? '🏆' : '👏';
+    $('r-text').textContent = me.alive ? '최후의 생존자!' : '게임 종료';
+    $('r-text').className = 'status ' + (me.alive ? 'ok' : '');
+    $('r-sub').textContent = me.alive ? '큰 화면을 보세요!' : '다음 게임을 기다려 주세요.';
+    return;
+  }
+  if (!me.alive) {
+    show('r'); $('r-icon').textContent = '💀'; $('r-text').textContent = '탈락!'; $('r-text').className = 'status bad';
+    $('r-sub').textContent = '부활 기회가 생기면 자동으로 다시 들어가요.'; return;
+  }
+  show('q');
+  if (room.q_index !== lastQ) { lastQ = room.q_index; myChoice = null; restoreChoice(); }
+  $('q-no').textContent = 'Q' + (room.q_index + 1);
+  $('q-text').textContent = room.question || '';
+  const revealed = room.phase === 'reveal';
+  ['o', 'x'].forEach(c => { const b = $('pick-' + c); b.disabled = revealed || !!myChoice; b.classList.toggle('picked', myChoice === c.toUpperCase()); });
+  if (revealed) {
+    const ok = myChoice === room.answer;
+    $('q-status').textContent = `정답은 ${room.answer}! ` + (myChoice ? (ok ? '맞혔어요 🎉' : '틀렸어요 😢') : '답을 안 냈어요');
+    $('q-status').className = 'status ' + (ok ? 'ok' : 'bad');
+  } else {
+    $('q-status').textContent = myChoice ? `${myChoice} 선택! 정답 공개를 기다리세요` : 'O 또는 X를 고르세요';
+    $('q-status').className = 'status';
+  }
+}
+async function restoreChoice() {
+  const { data } = await sb.from('ox_answers').select('choice').eq('room_code', code).eq('q_index', room.q_index).eq('player_id', me.id).maybeSingle();
+  if (data) { myChoice = data.choice; applyRoom(); }
+}
+async function pick(c) {
+  if (myChoice || room.phase !== 'question') return;
+  myChoice = c; applyRoom();
+  if (navigator.vibrate) navigator.vibrate(30);
+  const { error } = await sb.from('ox_answers').insert({ room_code: code, q_index: room.q_index, player_id: me.id, choice: c });
+  if (error && !/duplicate|unique/i.test(error.message)) { myChoice = null; applyRoom(); $('q-status').textContent = '전송 실패, 다시 눌러 주세요'; }
+}
+$('pick-o').onclick = () => pick('O');
+$('pick-x').onclick = () => pick('X');
+</script>
+</body>
+</html>

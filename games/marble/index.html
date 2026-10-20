@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>마블 룰렛 — 구슬 추첨기</title>
+<meta name="description" content="이름을 넣고 구슬을 굴려 당첨자를 뽑는 물리 시뮬레이션 기반 마블 룰렛. 고해상도 Canvas 렌더링, 반응형 레이아웃.">
+<meta name="theme-color" content="#07090e">
+<script>try{var t=localStorage.getItem("mr.theme");if(t)document.documentElement.dataset.theme=JSON.parse(t);}catch(e){}</script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%233b63f6'/%3E%3Ccircle cx='11' cy='11' r='4' fill='%23fff' opacity='.6'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<!-- SVG 아이콘 묶음 -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-gear" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M19.4 13.5a7.7 7.7 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.6 7.6 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.7 7.7 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.6 7.6 0 0 0 2.6-1.5l2.4 1 2-3.4-2-1.6Z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6.5" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="13.5" y="5" width="4" height="14" rx="1" fill="currentColor"/></symbol>
+  <symbol id="i-shuffle" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 7h3.5c2 0 3.2 1 4.3 2.6l2.4 4.8c1.1 1.6 2.3 2.6 4.3 2.6H21M3 17h3.5c1.4 0 2.4-.5 3.2-1.3M14.3 8.3c.8-.8 1.8-1.3 3.2-1.3H21M18 4l3 3-3 3M18 14l3 3-3 3"/></symbol>
+  <symbol id="i-skip" viewBox="0 0 24 24"><path fill="currentColor" d="M5 6.3v11.4a.8.8 0 0 0 1.2.7l8.4-5.7a.8.8 0 0 0 0-1.4L6.2 5.6a.8.8 0 0 0-1.2.7Z"/><rect x="16.5" y="5.5" width="2.6" height="13" rx="1" fill="currentColor"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M20 12a8 8 0 1 1-2.6-5.9M20 4v4.5h-4.5"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M15.5 5.5v-.5a2 2 0 0 0-2-2H6.5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h.5"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-trophy" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M7 4h10v5a5 5 0 0 1-10 0V4ZM7 6H4v1.5A3.5 3.5 0 0 0 7.5 11M17 6h3v1.5a3.5 3.5 0 0 1-3.5 3.5M12 14v3.5M8 20.5h8M9.5 17.5h5v3h-5z"/></symbol>
+  <symbol id="i-rec" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="currentColor"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24"><path fill="currentColor" d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.6 7.6 0 0 1 0 11"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24"><path fill="currentColor" d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="m16 9.5 5 5M21 9.5l-5 5"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 6l12 12M18 6 6 18"/></symbol>
+</svg>
+
+<a class="skip-link" href="#names">참가자 입력으로 건너뛰기</a>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 40 40" aria-hidden="true">
+      <circle cx="20" cy="20" r="18" fill="#3b63f6"/>
+      <circle cx="14" cy="15" r="6" fill="#ffc83d"/><circle cx="26" cy="15" r="6" fill="#ff6b8a"/><circle cx="20" cy="26" r="6" fill="#2fc48d"/>
+      <circle cx="12.5" cy="13.5" r="1.8" fill="#fff" opacity=".7"/><circle cx="24.5" cy="13.5" r="1.8" fill="#fff" opacity=".7"/><circle cx="18.5" cy="24.5" r="1.8" fill="#fff" opacity=".7"/>
+    </svg>
+    <div>
+      <h1>마블 룰렛</h1>
+      <p class="tagline">구슬을 굴려 당첨자를 뽑는 추첨기</p>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <a class="btn ghost sm" href="#guide">사용법</a>
+    <button id="themeBtn" class="btn ghost sm" type="button" aria-label="밝은 화면으로 바꾸기">
+      <svg class="ic theme-ic-dark"><use href="#i-sun"/></svg><svg class="ic theme-ic-light"><use href="#i-moon"/></svg><span id="themeLabel">밝게</span>
+    </button>
+    <button id="toggleSettings" class="btn ghost sm" type="button" aria-expanded="true" aria-controls="settings">
+      <svg class="ic"><use href="#i-gear"/></svg><span>설정</span><svg class="ic chev"><use href="#i-chev"/></svg>
+    </button>
+  </div>
+</header>
+
+<section id="settings" class="settings card" aria-label="추첨 설정">
+  <div class="field">
+    <label for="map">맵</label>
+    <select id="map"></select>
+  </div>
+  <div class="field">
+    <label for="rule">당첨 방식</label>
+    <select id="rule">
+      <option value="first">1등 (가장 먼저 도착)</option>
+      <option value="last">꼴등 (가장 늦게 도착)</option>
+      <option value="rank">N번째 도착</option>
+      <option value="multi">먼저 도착한 N명</option>
+    </select>
+  </div>
+  <div class="field narrow" id="rankField" hidden>
+    <label for="rankN" id="rankLabel">N</label>
+    <input id="rankN" type="number" min="1" max="500" value="3" inputmode="numeric">
+  </div>
+  <div class="field">
+    <label for="unit">순위 단위</label>
+    <select id="unit" aria-describedby="unitHelp">
+      <option value="participant">참가자 (중복 당첨 없음)</option>
+      <option value="marble">구슬 (구슬마다 순위)</option>
+    </select>
+  </div>
+  <div class="field narrow">
+    <label for="speed">속도</label>
+    <select id="speed">
+      <option value="1">1×</option>
+      <option value="2">2×</option>
+      <option value="4">4×</option>
+    </select>
+  </div>
+  <div class="toggles">
+    <label class="switch"><input id="use3d" type="checkbox"><span></span>3D 그래픽</label>
+    <label class="switch"><input id="sound" type="checkbox" checked><span></span>효과음</label>
+    <label class="switch"><input id="skills" type="checkbox"><span></span>스킬 사용</label>
+    <label class="switch"><input id="record" type="checkbox"><span></span>녹화</label>
+    <label class="switch"><input id="reduce" type="checkbox"><span></span>애니메이션 줄이기</label>
+  </div>
+  <p id="unitHelp" class="help settings-help"></p>
+</section>
+
+<main class="layout">
+  <section class="stage card" aria-label="룰렛 맵">
+    <canvas id="gl" role="img" aria-label="구슬이 굴러가는 3D 룰렛 맵" hidden></canvas>
+    <canvas id="overlay" aria-hidden="true" hidden></canvas>
+    <canvas id="board" role="img" aria-label="구슬이 굴러가는 룰렛 맵"></canvas>
+    <div class="hud" aria-hidden="true">
+      <span id="hudState" class="chip">대기</span>
+      <span id="hudTime" class="chip mono">0.0초</span>
+      <span id="hudCount" class="chip mono">0 / 0</span>
+      <span id="hudMap" class="chip subtle"></span>
+    </div>
+    <div class="cam-tools" role="group" aria-label="화면 보기">
+      <button id="muteBtn" class="icon-btn" type="button" aria-pressed="false" title="효과음 끄기"><svg class="ic"><use href="#i-sound"/></svg><span class="sr">효과음 켜기/끄기</span></button>
+      <button id="camFollow" class="icon-btn" type="button" aria-pressed="true" title="선두 따라가기"><svg class="ic"><use href="#i-target"/></svg><span class="sr">선두 따라가기</span></button>
+      <button id="camOverview" class="icon-btn" type="button" aria-pressed="false" title="맵 전체 보기"><svg class="ic"><use href="#i-expand"/></svg><span class="sr">맵 전체 보기</span></button>
+    </div>
+    <div id="recBadge" class="rec-badge" hidden><svg class="ic"><use href="#i-rec"/></svg>녹화 중</div>
+
+    <div id="result" class="result" role="dialog" aria-modal="false" aria-labelledby="resultTitle" hidden>
+      <div class="result-card">
+        <button id="resultClose" class="icon-btn close" type="button" title="닫기"><svg class="ic"><use href="#i-close"/></svg><span class="sr">닫기</span></button>
+        <div class="result-eyebrow"><svg class="ic"><use href="#i-trophy"/></svg><span id="resultTitle">당첨</span></div>
+        <ol id="resultList" class="result-list"></ol>
+        <p id="resultMeta" class="result-meta"></p>
+        <div class="result-actions">
+          <button id="againBtn" class="btn primary" type="button"><svg class="ic"><use href="#i-redo"/></svg>다시 추첨</button>
+          <button id="copyBtn" class="btn" type="button"><svg class="ic"><use href="#i-copy"/></svg>결과 복사</button>
+          <a id="recLink" class="btn" hidden download="marble-roulette.webm"><svg class="ic"><use href="#i-rec"/></svg>녹화 저장</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="side">
+    <section class="card panel" aria-labelledby="pTitle">
+      <div class="panel-head">
+        <h2 id="pTitle">참가자</h2>
+        <span id="countInfo" class="count mono">0명 · 구슬 0개</span>
+      </div>
+      <label for="names" class="sr">참가자 이름</label>
+      <textarea id="names" rows="5" spellcheck="false" aria-describedby="namesHelp msgs" placeholder="이름을 쉼표나 줄바꿈으로 구분해 입력">수박*2, 키위*2, 귤*2, 사과, 포도, 복숭아</textarea>
+      <p id="namesHelp" class="help">쉼표 또는 줄바꿈으로 구분 · <code>이름*숫자</code>로 구슬 수 지정 (예: <code>귤*3</code>)</p>
+      <div id="msgs" class="msgs" aria-live="polite"></div>
+      <div class="row">
+        <button id="shuffleNames" class="btn sm" type="button"><svg class="ic"><use href="#i-shuffle"/></svg>목록 섞기</button>
+        <button id="clearNames" class="btn sm" type="button"><svg class="ic"><use href="#i-trash"/></svg>입력 지우기</button>
+      </div>
+    </section>
+
+    <section class="card panel controls" aria-label="실행">
+      <button id="startBtn" class="btn primary lg" type="button"><svg class="ic"><use href="#i-play"/></svg><span>시작</span></button>
+      <div class="row">
+        <button id="shuffleBtn" class="btn" type="button" title="구슬 출발 배치를 새 시드로 다시 섞습니다"><svg class="ic"><use href="#i-shuffle"/></svg>셔플</button>
+        <button id="pauseBtn" class="btn" type="button" disabled><svg class="ic"><use href="#i-pause"/></svg><span>일시정지</span></button>
+      </div>
+      <div class="row">
+        <button id="skipBtn" class="btn" type="button" title="남은 시뮬레이션을 빠르게 계산해 결과를 바로 확인합니다"><svg class="ic"><use href="#i-skip"/></svg>결과 바로 보기</button>
+        <button id="resetBtn" class="btn" type="button"><svg class="ic"><use href="#i-redo"/></svg>다시 하기</button>
+      </div>
+      <p class="help mono" id="seedInfo"></p>
+    </section>
+
+    <section class="card panel" aria-labelledby="rTitle">
+      <div class="panel-head"><h2 id="rTitle">도착 순위</h2><span id="rankInfo" class="count"></span></div>
+      <ol id="ranking" class="ranking"></ol>
+      <p id="rankEmpty" class="empty">시작하면 도착한 순서대로 표시됩니다.</p>
+    </section>
+
+    <section class="card panel" aria-labelledby="hTitle">
+      <div class="panel-head">
+        <h2 id="hTitle">추첨 기록</h2>
+        <div class="row tight">
+          <button id="copyHistory" class="icon-btn" type="button" title="기록 전체 복사"><svg class="ic"><use href="#i-copy"/></svg><span class="sr">기록 전체 복사</span></button>
+          <button id="clearHistory" class="icon-btn" type="button" title="기록 지우기"><svg class="ic"><use href="#i-trash"/></svg><span class="sr">기록 지우기</span></button>
+        </div>
+      </div>
+      <ul id="history" class="history"></ul>
+      <p id="historyEmpty" class="empty">아직 기록이 없습니다.</p>
+    </section>
+  </aside>
+</main>
+
+<footer class="footer" id="guide">
+  <div class="foot-grid">
+    <section>
+      <h3>공지</h3>
+      <p>추첨 결과는 화면에 보이는 물리 시뮬레이션의 도착 순서로만 정해집니다. 출발 배치는 매번 새 시드로 섞이며, 같은 시드·참가자·맵·설정이면 같은 결과가 재현됩니다.</p>
+    </section>
+    <section>
+      <h3>사용법</h3>
+      <ol>
+        <li>참가자 이름을 입력합니다. <code>이름*3</code>처럼 쓰면 그 사람의 구슬이 3개가 됩니다.</li>
+        <li>설정에서 맵과 당첨 방식(1등·꼴등·N번째·N명)을 고릅니다.</li>
+        <li><b>시작</b>을 누르면 출발 문이 열립니다. <b>셔플</b>은 출발 배치를 다시 섞습니다.</li>
+        <li>당첨이 확정되면 결과 창이 뜨고 기록에 저장됩니다.</li>
+      </ol>
+    </section>
+    <section>
+      <h3>맵과 단축키</h3>
+      <ul id="mapGuide"></ul>
+      <p class="help">움직이는 장애물: <b style="color:#10b3a3">청록</b> 슬라이더 · <b style="color:#ff4f86">분홍</b> 플리퍼 · <b style="color:#8b5cf6">보라</b> 포털(순간이동)</p>
+      <p class="help"><kbd>Space</kbd> 시작·일시정지 · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 입력창에서 시작 · 맵 위에서 휠·드래그로 이동</p>
+    </section>
+  </div>
+  <p class="copyright">© 2026 마블 룰렛 · 바닐라 JavaScript · Canvas 2D · 원작 아이디어: <a href="https://lazygyu.github.io/roulette/" target="_blank" rel="noopener">lazygyu/roulette</a></p>
+</footer>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="sr-status" class="sr" aria-live="polite"></div>
+
+<script src="three.min.js"></script>
+<script src="engine.js"></script>
+<script src="render.js"></script>
+<script src="render3d.js"></script>
+<script src="sound.js"></script>
+<script src="app.js"></script>
+<script src="../../shared/home.js"></script>
+</body>
+</html>
