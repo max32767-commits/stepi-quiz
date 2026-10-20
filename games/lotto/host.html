@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>실시간 로또 — 진행자 화면</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="../ox/ox.css">
+<link rel="stylesheet" href="lotto.css">
+<style>
+  .drawbox{text-align:center;padding:30px 20px}
+  .drawbox .cur{height:150px;display:flex;align-items:center;justify-content:center;margin:10px 0}
+  .drawbox .balls .ball{width:72px;height:72px;font-size:28px}
+  .wlist{display:grid;gap:8px;margin-top:10px}
+  .wrow{display:flex;align-items:center;gap:12px;background:#f5f6fb;border-radius:12px;padding:10px 14px;font-weight:700}
+  .wrow .medal{font-size:26px;width:36px;text-align:center}.wrow .nm{font-size:20px;min-width:90px}
+  .wrow .nums{display:flex;gap:4px;flex-wrap:wrap}.wrow .nums .ball{width:30px;height:30px;font-size:13px}
+  .wrow .hits{margin-left:auto;color:var(--navy);font-size:18px;white-space:nowrap}
+  .wrow.r1{background:#fff1e0}.wrow.r2{background:#eef0fa}.wrow.r3{background:#e7f7ec}
+  .players span.ok{background:var(--o-bg);color:var(--o)}
+  .numin{width:64px;padding:6px;font:inherit;border:1px solid var(--line);border-radius:8px;text-align:center}
+</style>
+</head>
+<body class="host">
+<div class="topbar">
+  <a class="brand" href="../../"><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>STEPI 랜덤 게임</a>
+  <span class="pill">🎱 실시간 로또 · 진행자</span>
+</div>
+
+<!-- 1. 준비 -->
+<section id="setup" style="margin-top:20px">
+  <div class="setup">
+    <div class="card">
+      <h2>진행 방법</h2>
+      <ol style="padding-left:20px;line-height:1.9">
+        <li><b>방 만들기</b> → 4자리 코드와 QR이 나옵니다.</li>
+        <li>참가자는 휴대폰으로 들어와 <b>1~45 중 6개</b>를 고릅니다 (자동 선택도 가능).</li>
+        <li><b>번호 마감</b> 후 <b>추첨</b> 버튼을 누를 때마다 번호가 하나씩 나옵니다. 참가자 폰에서도 맞힌 번호가 실시간으로 켜져요.</li>
+        <li>6개를 다 뽑고 <b>결과 확정</b> → 많이 맞힌 순으로 1·2·3등 (같으면 먼저 제출한 사람).</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2>등수별 인원</h2>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin:8px 0 14px">
+        <label>🥇 1등 <input class="numin" type="number" id="n1" value="1" min="0" max="50"> 명</label>
+        <label>🥈 2등 <input class="numin" type="number" id="n2" value="2" min="0" max="50"> 명</label>
+        <label>🥉 3등 <input class="numin" type="number" id="n3" value="3" min="0" max="50"> 명</label>
+      </div>
+      <div class="muted">맞힌 개수가 0개여도 순위대로 채워지니 상품 개수만큼 정하면 됩니다.</div>
+      <button class="btn orange" id="create" style="width:100%;margin-top:14px;font-size:20px;padding:16px">방 만들기</button>
+      <p class="muted" id="setup-msg" style="margin:10px 0 0"></p>
+    </div>
+  </div>
+</section>
+
+<!-- 2. 번호 선택 대기 -->
+<section id="lobby" class="hidden">
+  <div class="card lobby">
+    <div class="muted">휴대폰으로 QR을 찍고 번호 6개를 고르세요</div>
+    <div class="big-code" id="lobby-code">0000</div>
+    <div id="lobby-qr" style="display:flex;justify-content:center;margin:16px 0"></div>
+    <div class="url" id="lobby-url"></div>
+    <div class="joined"><b id="lobby-n">0</b>명 참가 · <b id="lobby-done">0</b>명 선택 완료</div>
+    <div class="players" id="lobby-players" style="justify-content:center"></div>
+    <div class="controls"><button class="btn orange" id="close" style="font-size:20px;padding:16px 32px">번호 마감하고 추첨 시작</button></div>
+  </div>
+</section>
+
+<!-- 3. 추첨 -->
+<section id="draw" class="hidden">
+  <div class="stage">
+    <div>
+      <div class="card drawbox">
+        <div class="qno">추첨 번호</div>
+        <div class="cur" id="cur"></div>
+        <div class="balls" id="drawn"></div>
+        <div class="controls">
+          <button class="btn orange" id="next" style="font-size:22px;padding:16px 36px">🎱 번호 뽑기</button>
+          <button class="btn hidden" id="finish" style="font-size:22px;padding:16px 36px">🏆 결과 확정</button>
+        </div>
+      </div>
+    </div>
+    <div class="side card">
+      <div class="muted" style="text-align:center">방 코드</div>
+      <div class="code" id="side-code"></div>
+      <div style="margin-top:10px"><b>참가자 <span id="side-n">0</span>명</b> <span class="muted">· 실시간 맞힌 개수</span></div>
+      <div class="wlist" id="live"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. 결과 -->
+<section id="result" class="hidden">
+  <div class="card winner">
+    <div class="muted">🎱 당첨 번호</div>
+    <div class="balls" id="final-balls" style="margin:10px 0 18px"></div>
+    <div class="wlist" id="winners" style="max-width:720px;margin:0 auto;text-align:left"></div>
+    <div class="controls">
+      <button class="btn ghost" id="again">같은 참가자로 다시 추첨</button>
+      <button class="btn" id="newroom">새 방 만들기</button>
+    </div>
+  </div>
+</section>
+<div class="confetti" id="confetti"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../../shared/supabase-config.js"></script>
+<script src="../../shared/supabase-client.js"></script>
+<script src="../../shared/pin.js"></script>
+<script>
+if (!window.sb) throw new Error('Supabase 설정 없음');
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const err = e => (e.message || '').replace(/^.*?: /, '');
+const color = n => 'c' + (Math.min(4, Math.floor((n - 1) / 10)) + 1);
+const ball = (n, cls = '') => `<span class="ball ${color(n)} ${cls}">${n}</span>`;
+let PIN = null, code = '', room = null, players = [], channel = null, pollTimer = null, busy = false;
+STEPI_PIN.require().then(p => { PIN = p; });
+
+// ---- 준비 ----
+$('create').onclick = async () => {
+  if (!PIN) return;
+  $('create').disabled = true; $('setup-msg').textContent = '방을 만드는 중…';
+  const { data, error } = await sb.rpc('lotto_create_room', { p_pin: PIN, p_n1: +$('n1').value || 0, p_n2: +$('n2').value || 0, p_n3: +$('n3').value || 0 });
+  $('create').disabled = false;
+  if (error) return $('setup-msg').textContent = err(error);
+  code = data; enterLobby();
+};
+function playUrl() { return location.href.replace(/host\.html.*$/, 'play.html?room=' + code); }
+function enterLobby() {
+  show('lobby');
+  $('lobby-code').textContent = code; $('side-code').textContent = code; $('lobby-url').textContent = playUrl();
+  $('lobby-qr').innerHTML = ''; new QRCode($('lobby-qr'), { text: playUrl(), width: 220, height: 220, colorDark: '#373282' });
+  subscribe();
+}
+function subscribe() {
+  if (channel) sb.removeChannel(channel);
+  channel = sb.channel('lotto-' + code)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'lotto_players', filter: 'room_code=eq.' + code }, load)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lotto_rooms', filter: 'code=eq.' + code }, p => { room = p.new; render(); })
+    .subscribe();
+  load(); clearInterval(pollTimer); pollTimer = setInterval(load, 4000);
+}
+async function load() {
+  const [{ data: r }, { data: ps }] = await Promise.all([sb.from('lotto_rooms').select('*').eq('code', code).maybeSingle(), sb.from('lotto_players').select('*').eq('room_code', code).order('joined_at')]);
+  if (r) room = r; players = ps || []; render();
+}
+async function rpc(fn, args) {
+  const { data, error } = await sb.rpc(fn, { p_pin: PIN, p_code: code, ...args });
+  if (error) { alert(err(error)); if (/PIN/.test(error.message)) { STEPI_PIN.clear(); PIN = await STEPI_PIN.require(); } throw error; }
+  return data;
+}
+
+// ---- 진행 ----
+$('close').onclick = async () => {
+  const done = players.filter(p => p.numbers).length;
+  if (!done && !confirm('아직 번호를 고른 사람이 없어요. 그래도 마감할까요?')) return;
+  if (done < players.length && !confirm(`${players.length - done}명이 아직 번호를 안 골랐어요. 마감할까요? (안 고른 사람은 추첨에서 제외)`)) return;
+  await rpc('lotto_set_phase', { p_phase: 'draw' }); show('draw'); render();
+};
+$('next').onclick = async () => {
+  if (busy) return; busy = true; $('next').disabled = true;
+  $('cur').innerHTML = `<span class="ball big c4">?</span>`;
+  let spin = setInterval(() => { $('cur').firstChild.textContent = Math.floor(Math.random() * 45) + 1; $('cur').firstChild.className = 'ball big ' + color(+$('cur').firstChild.textContent); }, 60);
+  try {
+    const n = await rpc('lotto_draw_next', {});
+    await new Promise(r => setTimeout(r, 1500)); clearInterval(spin);
+    $('cur').innerHTML = ball(n, 'big pop');
+    await load();
+  } catch (e) { clearInterval(spin); $('cur').innerHTML = ''; }
+  busy = false; $('next').disabled = false;
+};
+$('finish').onclick = async () => { await rpc('lotto_finish', {}); await load(); };
+$('again').onclick = async () => { await rpc('lotto_set_phase', { p_phase: 'pick' }); enterLobby(); };
+$('newroom').onclick = () => location.reload();
+
+// ---- 렌더 ----
+function show(id) { ['setup', 'lobby', 'draw', 'result'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
+const hits = p => p.numbers ? p.numbers.filter(n => (room.drawn || []).includes(n)).length : 0;
+function render() {
+  if (!room) return;
+  const drawn = room.drawn || [];
+  $('lobby-n').textContent = players.length; $('side-n').textContent = players.length;
+  $('lobby-done').textContent = players.filter(p => p.numbers).length;
+  $('lobby-players').innerHTML = players.map(p => `<span class="${p.numbers ? 'ok' : ''}">${esc(p.name)}${p.numbers ? ' ✓' : ''}</span>`).join('');
+  $('drawn').innerHTML = [...Array(6)].map((_, i) => drawn[i] ? ball(drawn[i]) : '<span class="ball empty">?</span>').join('');
+  $('next').classList.toggle('hidden', drawn.length >= 6); $('finish').classList.toggle('hidden', drawn.length < 6);
+  const live = players.filter(p => p.numbers).map(p => ({ ...p, h: hits(p) })).sort((a, b) => b.h - a.h || new Date(a.submitted_at) - new Date(b.submitted_at)).slice(0, 15);
+  $('live').innerHTML = live.map(p => `<div class="wrow"><span class="nm">${esc(p.name)}</span><span class="hits">${p.h}개</span></div>`).join('');
+  if (room.phase === 'done' && room.winners) {
+    show('result');
+    $('final-balls').innerHTML = drawn.map(n => ball(n)).join('');
+    const medal = { 1: '🥇', 2: '🥈', 3: '🥉' };
+    $('winners').innerHTML = room.winners.filter(w => w.rank).map(w => `<div class="wrow r${w.rank}"><span class="medal">${medal[w.rank]}</span><span class="nm">${esc(w.name)}</span><span class="nums">${w.numbers.map(n => ball(n, drawn.includes(n) ? 'hit' : 'miss')).join('')}</span><span class="hits">${w.hits}개 맞힘</span></div>`).join('')
+      || '<div class="muted">당첨자가 없어요</div>';
+    confetti();
+  } else if (room.phase === 'draw' && $('draw').classList.contains('hidden')) show('draw');
+}
+function confetti() {
+  const c = $('confetti'); c.innerHTML = '';
+  const colors = ['#373282', '#ED911A', '#1f8a5b', '#d6453d', '#f5c518', '#6c5ce7'];
+  for (let i = 0; i < 90; i++) { const s = document.createElement('i'); s.style.cssText = `left:${Math.random() * 100}vw;background:${colors[i % 6]};animation-delay:${Math.random() * 1.5}s;transform:rotate(${Math.random() * 360}deg)`; c.appendChild(s); }
+  setTimeout(() => c.innerHTML = '', 5000);
+}
+</script>
+<script src="../../shared/home.js"></script>
+</body>
+</html>

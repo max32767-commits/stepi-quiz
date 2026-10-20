@@ -1,0 +1,9 @@
+.ball{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;font-weight:900;font-size:22px;color:#fff;box-shadow:inset -4px -6px 10px rgba(0,0,0,.25),0 4px 10px rgba(0,0,0,.15);font-variant-numeric:tabular-nums}
+.ball.c1{background:#f5b800}.ball.c2{background:#4a90e2}.ball.c3{background:#e8553d}.ball.c4{background:#8d8d8d}.ball.c5{background:#3fb24f}
+.ball.empty{background:#e3e6ef;color:#9aa0ad;box-shadow:none;border:2px dashed #cfd4e0}
+.ball.big{width:120px;height:120px;font-size:52px}
+.ball.pop{animation:pop .6s cubic-bezier(.34,1.56,.64,1)}
+@keyframes pop{0%{transform:scale(0) rotate(-180deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
+.ball.hit{outline:5px solid var(--orange);outline-offset:3px}
+.ball.miss{opacity:.35}
+.balls{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}

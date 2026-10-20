@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<title>실시간 로또 — 참가</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="../ox/ox.css">
+<link rel="stylesheet" href="lotto.css">
+<style>
+  .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .grid button{aspect-ratio:1;border-radius:50%;font-size:18px;font-weight:800;background:#f5f6fb;color:var(--ink);border:2px solid transparent}
+  .grid button.on{background:var(--navy);color:#fff}
+  .grid button:disabled{opacity:.5}
+  .mine{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;min-height:56px}
+  .mine .ball{width:46px;height:46px;font-size:18px}
+  .hitcount{text-align:center;font-size:22px;font-weight:900;color:var(--navy)}
+  .rankbig{text-align:center;font-size:40px;font-weight:900;color:var(--orange)}
+</style>
+</head>
+<body>
+<div class="play">
+  <div class="topbar" style="border-radius:14px;border:1px solid var(--line)">
+    <a class="brand" href="../../"><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>STEPI</a>
+    <span class="pill">🎱 실시간 로또</span>
+  </div>
+
+  <section id="join" class="card">
+    <h2>참가하기</h2>
+    <p class="muted">큰 화면에 보이는 4자리 코드와 이름을 넣으세요.</p>
+    <input class="code" id="code" inputmode="numeric" maxlength="4" placeholder="0000" style="margin-bottom:10px">
+    <input id="name" maxlength="12" placeholder="이름 (예: 홍길동)" style="margin-bottom:14px" enterkeyhint="go">
+    <button class="btn orange" id="go">입장</button>
+    <p class="muted" id="join-msg" style="margin:10px 0 0"></p>
+  </section>
+
+  <section id="pick" class="hidden" style="display:flex;flex-direction:column;gap:12px">
+    <div class="card" style="padding:14px"><div class="muted" style="font-weight:700;color:var(--orange)">번호 6개 고르기</div><div class="mine" id="mine"></div></div>
+    <div class="grid" id="grid"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn ghost" id="auto" style="flex:1">🎲 자동</button>
+      <button class="btn orange" id="submit" style="flex:2" disabled>제출</button>
+    </div>
+    <div class="status" id="pick-msg" style="padding:6px;font-size:16px"></div>
+  </section>
+
+  <section id="watch" class="hidden" style="display:flex;flex-direction:column;gap:12px">
+    <div class="card" style="text-align:center;padding:16px">
+      <div class="muted" style="font-weight:700;color:var(--orange)" id="watch-title">추첨 중…</div>
+      <div class="balls" id="drawn" style="margin:12px 0"></div>
+      <div class="muted">내 번호</div>
+      <div class="mine" id="mine2" style="margin-top:6px"></div>
+      <div class="hitcount" id="hitcount"></div>
+      <div class="rankbig" id="rank"></div>
+      <div class="muted" id="watch-sub"></div>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../../shared/supabase-config.js"></script>
+<script src="../../shared/supabase-client.js"></script>
+<script>
+if (!window.sb) throw new Error('Supabase 설정 없음');
+const $ = id => document.getElementById(id);
+const qs = new URLSearchParams(location.search);
+const color = n => 'c' + (Math.min(4, Math.floor((n - 1) / 10)) + 1);
+const ball = (n, cls = '') => `<span class="ball ${color(n)} ${cls}">${n}</span>`;
+let code = (qs.get('room') || '').replace(/\D/g, '').slice(0, 4), me = null, room = null, sel = [];
+$('code').value = code;
+try { $('name').value = localStorage.getItem('ox:name') || ''; } catch (e) {}
+if (code) $('name').focus(); else $('code').focus();
+$('name').onkeydown = e => { if (e.key === 'Enter') $('go').click(); };
+
+$('go').onclick = async () => {
+  code = $('code').value.replace(/\D/g, '');
+  const name = $('name').value.trim().slice(0, 12);
+  if (code.length !== 4) return $('join-msg').textContent = '코드 4자리를 입력하세요.';
+  if (!name) return $('join-msg').textContent = '이름을 입력하세요. (예: 홍길동)';
+  $('go').disabled = true; $('join-msg').textContent = '입장 중…';
+  let pid = null; try { pid = localStorage.getItem('lotto:pid:' + code); } catch (e) {}
+  const { data: p, error } = await sb.rpc('lotto_join', { p_code: code, p_name: name, p_pid: pid ? +pid : null });
+  if (error) { $('go').disabled = false; return $('join-msg').textContent = error.message.replace(/^.*?: /, ''); }
+  me = p; sel = me.numbers || [];
+  try { localStorage.setItem('ox:name', name); localStorage.setItem('lotto:pid:' + code, me.id); } catch (e) {}
+  const { data: r } = await sb.from('lotto_rooms').select('*').eq('code', code).maybeSingle();
+  room = r; subscribe(); render();
+};
+function subscribe() {
+  sb.channel('lotto-play-' + code + '-' + me.id)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lotto_rooms', filter: 'code=eq.' + code }, p => { room = p.new; render(); })
+    .subscribe();
+  setInterval(async () => { const { data: r } = await sb.from('lotto_rooms').select('*').eq('code', code).maybeSingle(); if (r && r.updated_at !== room?.updated_at) { room = r; render(); } }, 3000);
+}
+
+// ---- 번호 선택 ----
+$('grid').innerHTML = [...Array(45)].map((_, i) => `<button data-n="${i + 1}">${i + 1}</button>`).join('');
+$('grid').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return; const n = +b.dataset.n;
+  if (sel.includes(n)) sel = sel.filter(x => x !== n); else if (sel.length < 6) sel.push(n); else return;
+  renderPick();
+};
+$('auto').onclick = () => { const pool = [...Array(45)].map((_, i) => i + 1).sort(() => Math.random() - .5); sel = pool.slice(0, 6); renderPick(); };
+$('submit').onclick = async () => {
+  $('submit').disabled = true; $('pick-msg').textContent = '제출 중…';
+  const { data, error } = await sb.rpc('lotto_pick', { p_code: code, p_pid: me.id, p_numbers: [...sel].sort((a, b) => a - b) });
+  if (error) { $('pick-msg').textContent = error.message.replace(/^.*?: /, ''); $('submit').disabled = false; return; }
+  me = data; sel = me.numbers; if (navigator.vibrate) navigator.vibrate(40);
+  $('pick-msg').textContent = '제출했어요! 마감 전까지 바꿀 수 있어요.'; $('pick-msg').className = 'status ok'; renderPick();
+};
+function renderPick() {
+  const sorted = [...sel].sort((a, b) => a - b);
+  $('mine').innerHTML = sorted.map(n => ball(n)).join('') + '<span class="ball empty">?</span>'.repeat(6 - sel.length);
+  [...$('grid').children].forEach(b => b.classList.toggle('on', sel.includes(+b.dataset.n)));
+  $('submit').disabled = sel.length !== 6;
+  $('submit').textContent = me && me.numbers ? '다시 제출' : '제출';
+}
+
+// ---- 추첨 보기 ----
+function render() {
+  if (!room) return;
+  if (room.phase === 'pick') { show('pick'); renderPick(); return; }
+  show('watch');
+  const drawn = room.drawn || [], mine = me.numbers || [];
+  $('drawn').innerHTML = [...Array(6)].map((_, i) => drawn[i] ? ball(drawn[i], i === drawn.length - 1 && room.phase === 'draw' ? 'pop' : '') : '<span class="ball empty">?</span>').join('');
+  $('mine2').innerHTML = mine.length ? mine.map(n => ball(n, drawn.includes(n) ? 'hit' : (drawn.length ? 'miss' : ''))).join('') : '<span class="muted">번호를 제출하지 않았어요</span>';
+  const h = mine.filter(n => drawn.includes(n)).length;
+  $('hitcount').textContent = mine.length ? `${h}개 맞춤` : '';
+  if (room.phase === 'done' && room.winners) {
+    const w = (room.winners || []).find(x => x.id === me.id);
+    const medal = { 1: '🥇 1등!', 2: '🥈 2등!', 3: '🥉 3등!' };
+    $('watch-title').textContent = '추첨 완료'; $('rank').textContent = w && w.rank ? medal[w.rank] : '';
+    $('watch-sub').textContent = w && w.rank ? '큰 화면 앞으로 나오세요!' : '아쉽지만 다음 기회에 😢';
+    if (w && w.rank && navigator.vibrate) navigator.vibrate([80, 50, 80, 50, 160]);
+  } else { $('watch-title').textContent = `추첨 중… (${drawn.length}/6)`; $('rank').textContent = ''; $('watch-sub').textContent = '큰 화면을 보세요'; }
+}
+function show(id) { ['join', 'pick', 'watch'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
+</script>
+</body>
+</html>

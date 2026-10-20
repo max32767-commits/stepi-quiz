@@ -414,3 +414,8 @@ begin
 end $$;
 grant execute on function ox_set_room(text,text,text,int,text,text,text,text,int), ox_submit(text,int,bigint,text) to anon, authenticated;
 alter policy ox_answers_insert on ox_answers with check (false);   -- 제출은 RPC 로만
+
+-- ------------------------------------------------------------
+-- 6. 실시간 로또 (lotto_rooms / lotto_players + RPC) — 실제 정의는 Supabase migrations 참고
+--    lotto_create_room(pin,n1,n2,n3) → code / lotto_join / lotto_pick / lotto_set_phase / lotto_draw_next(서버 난수) / lotto_finish(순위 확정)
+-- ------------------------------------------------------------
