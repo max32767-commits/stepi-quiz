@@ -3,21 +3,34 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>OX 서바이벌 퀴즈 — 진행자 화면</title>
+<title>스피드 퀴즈 — 진행자 화면</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <link rel="stylesheet" href="ox.css">
 <style>
-  .textlist{width:100%;max-width:720px;display:grid;gap:8px}
-  .textlist .row{display:flex;align-items:center;gap:12px;background:#f5f6fb;border-radius:12px;padding:10px 14px;font-size:20px;font-weight:700}
-  .textlist .row .cnt{margin-left:auto;font-size:18px;color:var(--navy)} .textlist .row.ok{background:var(--o-bg);color:var(--o)}
-  .textlist .row .bar{flex:0 0 120px;height:8px;background:rgba(0,0,0,.08);border-radius:4px;overflow:hidden}.textlist .row .bar b{display:block;height:100%;background:currentColor}
-  .answer-reveal{font-size:34px;font-weight:900;color:var(--o);margin-top:10px}
+  .timer{width:100%;max-width:720px;height:14px;background:#eef0fa;border-radius:7px;overflow:hidden;margin:6px 0 4px}
+  .timer b{display:block;height:100%;background:var(--navy);width:100%;transition:width .25s linear}
+  .timer.low b{background:var(--x)}
+  .tleft{font-size:44px;font-weight:900;color:var(--navy);font-variant-numeric:tabular-nums;line-height:1}
+  .tleft.low{color:var(--x)}
+  .fast{width:100%;max-width:720px;display:grid;gap:8px;margin-top:10px}
+  .fast .row{display:flex;align-items:center;gap:12px;background:var(--o-bg);color:var(--o);border-radius:12px;padding:10px 14px;font-size:20px;font-weight:800}
+  .fast .row .medal{font-size:24px}.fast .row .t{margin-left:auto;font-size:16px;font-weight:600;opacity:.8}.fast .row .pts{font-size:18px}
+  .fast .row.wrong{background:#f5f6fb;color:var(--muted);font-weight:600;font-size:16px}
+  .answer-reveal{font-size:40px;font-weight:900;color:var(--o);margin-top:6px}
+  .board{display:grid;gap:6px;margin-top:10px}
+  .board .r{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;background:#f5f6fb;font-weight:700}
+  .board .r .rank{width:28px;color:var(--orange);font-weight:900}.board .r .sc{margin-left:auto;color:var(--navy);font-variant-numeric:tabular-nums}
+  .board .r.top{background:#fff1e0}
+  .podium{display:flex;justify-content:center;gap:18px;margin:16px 0;flex-wrap:wrap}
+  .podium .p{text-align:center;background:#f5f6fb;border-radius:18px;padding:18px 22px;min-width:150px}
+  .podium .p .m{font-size:44px}.podium .p .n{font-size:24px;font-weight:900;color:var(--navy)}.podium .p .s{color:var(--muted);font-weight:700}
+  .podium .p.first{background:#fff1e0;transform:scale(1.08)}
 </style>
 </head>
 <body class="host">
 <div class="topbar">
   <a class="brand" href="../../"><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>STEPI 랜덤 게임</a>
-  <span class="pill">⭕❌ 서바이벌 퀴즈 · 진행자</span>
+  <span class="pill">⚡ 스피드 퀴즈 · 진행자</span>
 </div>
 
 <!-- 1. 준비 -->
@@ -25,24 +38,24 @@
   <div class="setup">
     <div class="card">
       <h2>문제 입력</h2>
-      <p class="muted">한 줄에 한 문제. 끝에 <b>|O</b>, <b>|X</b> 또는 <b>|정답 글자</b>를 적으세요. 글자 정답이 여럿이면 <b>/</b>로 구분 (예: <code>STEPI 소재지는?|세종/세종시</code>). 띄어쓰기·대소문자는 무시하고 채점합니다.</p>
+      <p class="muted">한 줄에 한 문제, <b>문제|정답</b> 형식. 정답이 여럿이면 <b>/</b>로 구분 (예: <code>세계에서 가장 긴 강은?|나일강/나일</code>). O/X 문제는 <code>|O</code>, <code>|X</code>. 띄어쓰기·대소문자는 무시하고 채점합니다.</p>
       <textarea id="qs"></textarea>
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
         <button class="btn sm ghost" id="sample">예시 문제 넣기</button>
         <button class="btn sm ghost" id="shuffle">순서 섞기</button>
-        <span class="muted" style="align-self:center" id="qcount"></span>
+        <span class="muted" id="qcount"></span>
       </div>
     </div>
     <div class="card">
       <h2>진행 방법</h2>
       <ol style="padding-left:20px;line-height:1.9">
-        <li>문제를 넣고 <b>방 만들기</b>를 누르면 4자리 코드와 QR이 나옵니다.</li>
+        <li>문제를 넣고 <b>방 만들기</b> → 4자리 코드와 QR이 나옵니다.</li>
         <li>참가자는 휴대폰으로 QR을 찍거나 코드를 입력해 이름을 넣고 들어옵니다.</li>
-        <li><b>문제 내기</b> → 참가자가 폰에서 O/X를 고르거나 글자로 답을 적습니다. 집계가 실시간으로 올라옵니다.</li>
-        <li><b>정답 공개</b> → 틀리거나 안 낸 사람은 탈락. 마지막까지 남은 사람이 우승!</li>
+        <li><b>문제 내기</b> → 제한시간 안에 참가자가 폰으로 답을 적어 제출합니다. 틀리면 다시 시도할 수 있어요.</li>
+        <li>맞히면 <b>50점 + 속도 보너스(최대 50점) + 순위 보너스(1등 30·2등 20·3등 10)</b>. 시간이 끝나면 자동으로 정답과 순위가 공개됩니다.</li>
+        <li>문제를 다 내면 <b>총점이 가장 높은 사람이 우승!</b></li>
       </ol>
-      <label style="display:block;margin:8px 0"><input type="checkbox" id="elim" checked> 틀리면 탈락 (끄면 집계만)</label>
-      <label style="display:block;margin:8px 0"><input type="checkbox" id="autoRevive" checked> 전원 탈락하면 아무도 탈락시키지 않음</label>
+      <label style="display:block;margin:10px 0">문제당 제한시간 <input type="number" id="limit" value="30" min="5" max="180" style="width:70px;padding:6px;font:inherit;border:1px solid var(--line);border-radius:8px"> 초</label>
       <button class="btn orange" id="create" style="width:100%;margin-top:12px;font-size:20px;padding:16px">방 만들기</button>
       <p class="muted" id="setup-msg" style="margin:10px 0 0"></p>
     </div>
@@ -69,18 +82,15 @@
       <div class="card qbox">
         <div class="qno" id="qno">Q1</div>
         <div class="q" id="qtext"></div>
-        <div class="tally" id="tally-ox">
-          <div class="box o" id="box-o"><div class="big">O</div><div class="cnt"><span id="cnt-o">0</span>명</div><div class="bar"><b id="bar-o"></b></div></div>
-          <div class="box x" id="box-x"><div class="big">X</div><div class="cnt"><span id="cnt-x">0</span>명</div><div class="bar"><b id="bar-x"></b></div></div>
-        </div>
-        <div class="textlist hidden" id="tally-text"></div>
+        <div class="tleft" id="tleft">30</div>
+        <div class="timer" id="timer"><b id="tbar"></b></div>
+        <div class="muted"><span id="answered">0</span> / <span id="total-n">0</span>명 정답 · <span id="tries">0</span>회 시도</div>
         <div class="answer-reveal hidden" id="answer-reveal"></div>
-        <div class="muted" style="margin-top:14px"><span id="answered">0</span> / <span id="alive-n">0</span>명 응답</div>
+        <div class="fast" id="fast"></div>
       </div>
       <div class="controls">
-        <button class="btn" id="reveal">정답 공개</button>
+        <button class="btn" id="reveal">지금 마감하고 정답 공개</button>
         <button class="btn orange hidden" id="next">다음 문제 →</button>
-        <button class="btn ghost" id="revive">전원 부활</button>
         <button class="btn ghost" id="finish">종료</button>
       </div>
     </div>
@@ -88,8 +98,8 @@
       <div class="muted" style="text-align:center">방 코드</div>
       <div class="code" id="side-code"></div>
       <div id="side-qr" style="display:flex;justify-content:center;margin:8px 0"></div>
-      <div style="display:flex;justify-content:space-between;margin-top:10px"><b>참가자 <span id="side-n">0</span></b><span class="muted">생존 <b id="side-alive">0</b></span></div>
-      <div class="players" id="side-players"></div>
+      <div style="display:flex;justify-content:space-between;margin-top:10px"><b>🏆 순위</b><span class="muted">참가 <b id="side-n">0</b>명</span></div>
+      <div class="board" id="board"></div>
     </div>
   </div>
 </section>
@@ -97,9 +107,10 @@
 <!-- 4. 결과 -->
 <section id="result" class="hidden">
   <div class="card winner">
-    <div class="muted">🏆 최후의 생존자</div>
-    <div class="names" id="winners"></div>
-    <div class="muted" id="result-sub"></div>
+    <div class="muted">🏆 최종 순위</div>
+    <div class="podium" id="podium"></div>
+    <div class="board" id="final-board" style="max-width:520px;margin:0 auto"></div>
+    <div class="muted" id="result-sub" style="margin-top:12px"></div>
     <div class="controls">
       <button class="btn ghost" id="again">같은 참가자로 다시</button>
       <button class="btn" id="newroom">새 방 만들기</button>
@@ -116,25 +127,23 @@
 <script>
 if (!window.sb) throw new Error('Supabase 설정 없음');
 const $ = id => document.getElementById(id);
-const SAMPLE = `STEPI는 1987년에 설립되었다|O
-세종특별자치시는 2012년에 출범했다|O
-대한민국의 국회의원 수는 300명이다|O
-지구에서 가장 가까운 별은 북극성이다|X
+const SAMPLE = `과학기술정책연구원의 영문 약자는?|STEPI
+STEPI가 있는 도시는?|세종/세종시/세종특별자치시
 한글날은 몇 월 며칠? (예: 3월 1일)|10월 9일
-코끼리는 뛰지 못한다|O
-토마토는 채소로 분류된다|X
 세계에서 가장 긴 강은?|나일강/나일
-빛은 소리보다 느리다|X
-과학기술정책연구원의 영문 약자는?|STEPI`;
+대한민국 국회의원 정원은 몇 명?|300명/300
+지구에서 가장 가까운 별은?|태양
+물의 화학식은?|H2O
+코끼리는 뛰지 못한다|O
+토마토는 과일이다|O
+우리 원의 CI 색은 네이비와 오렌지다|O
+'부캉이'는 어느 도시에 나타난 상어?|부산/부산광역시
+올해 추석은 몇 월? (숫자만)|10/10월`;
 
-let PIN = null;
-let code = '', questions = [], qi = -1, players = [], answers = [], phase = 'lobby', channel = null, pollTimer = null;
-let elim = true, autoRevive = true;
-const norm = s => String(s || '').replace(/\s+/g, '').toLowerCase();
-const isCorrect = (q, a) => q.type === 'ox' ? a === q.a : q.accept.includes(norm(a));
-
-// ---- PIN ----
+let PIN = null, code = '', questions = [], qi = -1, players = [], answers = [], phase = 'lobby', channel = null, pollTimer = null, tick = null, LIMIT = 30, qStart = 0, revealed = false;
 STEPI_PIN.require().then(p => { PIN = p; });
+const err = e => (e.message || '').replace(/^.*?: /, '');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // ---- 준비 ----
 $('sample').onclick = () => { $('qs').value = SAMPLE; count(); };
@@ -143,36 +152,33 @@ $('qs').oninput = count;
 function parse() {
   return $('qs').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
     const m = l.match(/^(.*?)\s*[|｜]\s*(.+?)\s*$/); if (!m) return null;
-    const q = m[1], ans = m[2];
-    if (/^[OXox○×]$/.test(ans)) return { raw: l, q, type: 'ox', a: /[Oo○]/.test(ans) ? 'O' : 'X' };
-    return { raw: l, q, type: 'text', a: ans.split('/')[0].trim(), accRaw: ans, accept: ans.split('/').map(norm).filter(Boolean) };
+    const ans = m[2]; const ox = /^[OXox○×]$/.test(ans);
+    return { raw: l, q: m[1], type: ox ? 'ox' : 'text', accept: ox ? (/[Oo○]/.test(ans) ? 'O' : 'X') : ans, display: ox ? (/[Oo○]/.test(ans) ? 'O' : 'X') : ans.split('/')[0].trim() };
   }).filter(Boolean);
 }
-function count() { const qs = parse(); $('qcount').textContent = qs.length ? `${qs.length}문제 (OX ${qs.filter(q => q.type === 'ox').length} · 글자 ${qs.filter(q => q.type === 'text').length})` : ''; }
-try { const s = localStorage.getItem('ox:qs'); if (s) { $('qs').value = s; count(); } } catch (e) {}
+function count() { const n = parse().length; $('qcount').textContent = n ? n + '문제' : ''; }
+try { const s = localStorage.getItem('speed:qs'); if (s) { $('qs').value = s; count(); } } catch (e) {}
 
 $('create').onclick = async () => {
   if (!PIN) return;
   questions = parse();
-  if (!questions.length) return $('setup-msg').textContent = '문제를 한 개 이상 넣어 주세요 (끝에 |O, |X 또는 |정답).';
-  try { localStorage.setItem('ox:qs', $('qs').value); } catch (e) {}
-  elim = $('elim').checked; autoRevive = $('autoRevive').checked;
+  if (!questions.length) return $('setup-msg').textContent = '문제를 한 개 이상 넣어 주세요 (문제|정답).';
+  LIMIT = Math.min(180, Math.max(5, +$('limit').value || 30));
+  try { localStorage.setItem('speed:qs', $('qs').value); } catch (e) {}
   $('create').disabled = true; $('setup-msg').textContent = '방을 만드는 중…';
   const { data, error } = await sb.rpc('ox_create_room', { p_pin: PIN });
   $('create').disabled = false;
   if (error) return $('setup-msg').textContent = err(error);
   code = data; enterLobby();
 };
-const err = e => (e.message || '').replace(/^.*?: /, '');
 
 // ---- 대기실 ----
 function playUrl() { return location.href.replace(/host\.html.*$/, 'play.html?room=' + code); }
 function qr(el, size) { el.innerHTML = ''; new QRCode(el, { text: playUrl(), width: size, height: size, colorDark: '#373282' }); }
 function enterLobby() {
   show('lobby');
-  $('lobby-code').textContent = code; $('side-code').textContent = code;
-  $('lobby-url').textContent = playUrl();
-  qr($('lobby-qr'), 220); qr($('side-qr'), 160);
+  $('lobby-code').textContent = code; $('side-code').textContent = code; $('lobby-url').textContent = playUrl();
+  qr($('lobby-qr'), 220); qr($('side-qr'), 150);
   subscribe();
 }
 $('start').onclick = () => { if (!players.length && !confirm('참가자가 아직 없어요. 그래도 시작할까요?')) return; qi = -1; nextQuestion(); };
@@ -180,109 +186,98 @@ $('start').onclick = () => { if (!players.length && !confirm('참가자가 아�
 // ---- 실시간 ----
 function subscribe() {
   if (channel) sb.removeChannel(channel);
-  channel = sb.channel('ox-' + code)
+  channel = sb.channel('speed-' + code)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'ox_players', filter: 'room_code=eq.' + code }, loadPlayers)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ox_answers', filter: 'room_code=eq.' + code },
-        p => { if (p.new.q_index === qi && !answers.some(a => a.player_id === p.new.player_id)) { answers.push(p.new); renderTally(); } })
+        p => { if (p.new.q_index === qi && !answers.some(a => a.id === p.new.id)) { answers.push(p.new); renderFast(); } })
     .subscribe();
   loadPlayers();
   clearInterval(pollTimer);
-  pollTimer = setInterval(() => { loadPlayers(); if (phase === 'question') loadAnswers(); }, 4000);
+  pollTimer = setInterval(() => { loadPlayers(); if (phase === 'question') loadAnswers(); }, 3000);
 }
 async function loadPlayers() {
-  const { data } = await sb.from('ox_players').select('*').eq('room_code', code).order('joined_at');
-  players = data || []; renderPlayers(phase === 'reveal');
+  const { data } = await sb.from('ox_players').select('*').eq('room_code', code).order('score', { ascending: false }).order('joined_at');
+  players = data || []; renderPlayers();
 }
 async function loadAnswers() {
-  const { data } = await sb.from('ox_answers').select('*').eq('room_code', code).eq('q_index', qi);
-  answers = data || []; renderTally();
+  const { data } = await sb.from('ox_answers').select('*').eq('room_code', code).eq('q_index', qi).order('id');
+  answers = data || []; renderFast();
 }
 async function setRoom(p) {
   phase = p.phase;
-  const { error } = await sb.rpc('ox_set_room', { p_pin: PIN, p_code: code, p_phase: p.phase, p_q_index: p.q_index, p_question: p.question, p_answer: p.answer, p_qtype: p.qtype || 'ox' });
+  const { error } = await sb.rpc('ox_set_room', { p_pin: PIN, p_code: code, p_phase: p.phase, p_q_index: p.q_index, p_question: p.question, p_answer: p.answer, p_qtype: p.qtype || 'text', p_accept: p.accept || null, p_time_limit: LIMIT });
   if (error) { alert(err(error)); if (/PIN/.test(error.message)) { STEPI_PIN.clear(); PIN = await STEPI_PIN.require(); } }
 }
 
 // ---- 진행 ----
-const alive = () => players.filter(p => p.alive);
 const cur = () => questions[qi];
 async function nextQuestion() {
   qi++;
   if (qi >= questions.length) return finish();
-  answers = [];
+  answers = []; revealed = false;
   show('game');
   const q = cur();
-  $('qno').textContent = `Q${qi + 1} / ${questions.length}` + (q.type === 'text' ? ' · 글자 답' : ''); $('qtext').textContent = q.q;
-  $('tally-ox').classList.toggle('hidden', q.type !== 'ox'); $('tally-text').classList.toggle('hidden', q.type !== 'text');
-  $('answer-reveal').classList.add('hidden');
-  ['box-o', 'box-x'].forEach(id => $(id).classList.remove('dim', 'win'));
+  $('qno').textContent = `Q${qi + 1} / ${questions.length}` + (q.type === 'ox' ? ' · O/X' : '');
+  $('qtext').textContent = q.q;
+  $('answer-reveal').classList.add('hidden'); $('fast').innerHTML = '';
   $('reveal').classList.remove('hidden'); $('next').classList.add('hidden');
-  renderTally(); renderPlayers();
-  await setRoom({ phase: 'question', q_index: qi, question: q.q, answer: null, qtype: q.type });
+  await setRoom({ phase: 'question', q_index: qi, question: q.q, answer: null, qtype: q.type, accept: q.accept });
+  qStart = Date.now(); startTimer(); renderFast();
 }
-$('reveal').onclick = async () => {
-  await loadAnswers();
+function startTimer() {
+  clearInterval(tick);
+  const upd = () => {
+    const left = Math.max(0, LIMIT - (Date.now() - qStart) / 1000);
+    $('tleft').textContent = Math.ceil(left); $('tbar').style.width = (left / LIMIT * 100) + '%';
+    $('timer').classList.toggle('low', left <= 5); $('tleft').classList.toggle('low', left <= 5);
+    if (left <= 0) { clearInterval(tick); reveal(); }
+  };
+  upd(); tick = setInterval(upd, 250);
+}
+async function reveal() {
+  if (revealed) return; revealed = true; clearInterval(tick);
+  $('tleft').textContent = '⏱'; $('tbar').style.width = '0%';
   const q = cur();
-  if (q.type === 'ox') { $('box-' + (q.a === 'O' ? 'x' : 'o')).classList.add('dim'); $('box-' + q.a.toLowerCase()).classList.add('win'); }
-  else { $('answer-reveal').textContent = '정답: ' + q.a; $('answer-reveal').classList.remove('hidden'); }
+  await setRoom({ phase: 'reveal', q_index: qi, question: q.q, answer: q.display, qtype: q.type });
+  await loadAnswers(); await loadPlayers();
+  $('answer-reveal').textContent = '정답: ' + q.display; $('answer-reveal').classList.remove('hidden');
   $('reveal').classList.add('hidden'); $('next').classList.remove('hidden');
-  phase = 'reveal'; renderTally();
-  if (elim) {
-    const wrong = alive().filter(p => { const a = answers.find(x => x.player_id === p.id); return !a || !isCorrect(q, a.choice); }).map(p => p.id);
-    if (wrong.length && !(wrong.length === alive().length && autoRevive)) {
-      await sb.rpc('ox_set_alive', { p_pin: PIN, p_code: code, p_ids: wrong, p_alive: false });
-    }
-  }
-  await setRoom({ phase: 'reveal', q_index: qi, question: q.q, answer: q.type === 'text' ? q.accRaw : q.a, qtype: q.type });
-  await loadPlayers();
-  renderPlayers(true);
-  if (elim && alive().length <= 1 && players.length > 1) setTimeout(finish, 1800);
-};
+}
+$('reveal').onclick = reveal;
 $('next').onclick = nextQuestion;
-$('revive').onclick = async () => { await sb.rpc('ox_set_alive', { p_pin: PIN, p_code: code, p_ids: null, p_alive: true }); loadPlayers(); };
 $('finish').onclick = () => { if (confirm('게임을 끝낼까요?')) finish(); };
 async function finish() {
+  clearInterval(tick);
   await loadPlayers();
-  const w = alive();
   show('result');
-  $('winners').textContent = w.length ? w.map(p => p.name).join(', ') : '(생존자 없음)';
+  const top = players.slice(0, 3), medals = ['🥇', '🥈', '🥉'];
+  $('podium').innerHTML = top.map((p, i) => `<div class="p ${i === 0 ? 'first' : ''}"><div class="m">${medals[i]}</div><div class="n">${esc(p.name)}</div><div class="s">${p.score}점</div></div>`).join('');
+  $('final-board').innerHTML = players.slice(3).map((p, i) => `<div class="r"><span class="rank">${i + 4}</span>${esc(p.name)}<span class="sc">${p.score}점</span></div>`).join('');
   $('result-sub').textContent = `${players.length}명 참가 · ${Math.min(qi + 1, questions.length)}문제 진행`;
   confetti();
   await setRoom({ phase: 'end', q_index: qi, question: null, answer: null });
 }
-$('again').onclick = async () => { await sb.rpc('ox_set_alive', { p_pin: PIN, p_code: code, p_ids: null, p_alive: true }); qi = -1; await setRoom({ phase: 'lobby', q_index: -1, question: null, answer: null }); enterLobby(); };
+$('again').onclick = async () => { qi = -1; await setRoom({ phase: 'lobby', q_index: -1, question: null, answer: null }); enterLobby(); };
 $('newroom').onclick = () => location.reload();
 
 // ---- 렌더 ----
 function show(id) { ['setup', 'lobby', 'game', 'result'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
-function renderPlayers(mark) {
-  const q = cur();
-  const html = players.map(p => {
-    let cls = p.alive ? '' : 'dead';
-    if (mark && q && p.alive) { const a = answers.find(x => x.player_id === p.id); cls = a && isCorrect(q, a.choice) ? 'ok' : 'bad'; }
-    return `<span class="${cls}">${esc(p.name)}</span>`;
-  }).join('');
-  $('lobby-players').innerHTML = html; $('side-players').innerHTML = html;
-  $('lobby-n').textContent = players.length; $('side-n').textContent = players.length;
-  $('side-alive').textContent = alive().length; $('alive-n').textContent = alive().length;
+function renderPlayers() {
+  $('lobby-players').innerHTML = players.map(p => `<span>${esc(p.name)}</span>`).join('');
+  $('lobby-n').textContent = players.length; $('side-n').textContent = players.length; $('total-n').textContent = players.length;
+  $('board').innerHTML = players.slice(0, 12).map((p, i) => `<div class="r ${i < 3 ? 'top' : ''}"><span class="rank">${i + 1}</span>${esc(p.name)}<span class="sc">${p.score}</span></div>`).join('');
 }
-function renderTally() {
-  const q = cur(); if (!q) return;
-  const ids = new Set(alive().map(p => p.id));
-  const mine = answers.filter(a => ids.has(a.player_id));
-  const n = Math.max(1, alive().length);
-  $('answered').textContent = mine.length;
-  if (q.type === 'ox') {
-    const o = mine.filter(a => a.choice === 'O').length, x = mine.filter(a => a.choice === 'X').length;
-    $('cnt-o').textContent = o; $('cnt-x').textContent = x;
-    $('bar-o').style.width = (o / n * 100) + '%'; $('bar-x').style.width = (x / n * 100) + '%';
-  } else {
-    const cnt = {}; mine.forEach(a => { const k = String(a.choice).trim(); cnt[k] = (cnt[k] || 0) + 1; });
-    const rows = Object.entries(cnt).sort((a, b) => b[1] - a[1]).slice(0, 12);
-    const revealed = phase === 'reveal';
-    $('tally-text').innerHTML = rows.length ? rows.map(([k, c]) => `<div class="row ${revealed && isCorrect(q, k) ? 'ok' : ''}">${revealed || !elim ? esc(k) : '•••'}<span class="bar"><b style="width:${c / n * 100}%"></b></span><span class="cnt">${c}명</span></div>`).join('')
-      : '<div class="muted">답을 기다리는 중…</div>';
-  }
+function renderFast() {
+  const names = Object.fromEntries(players.map(p => [p.id, p.name]));
+  const correct = answers.filter(a => a.correct).sort((a, b) => a.elapsed_ms - b.elapsed_ms);
+  $('answered').textContent = correct.length; $('tries').textContent = answers.length;
+  const medals = ['🥇', '🥈', '🥉'];
+  let html = correct.slice(0, 8).map((a, i) => `<div class="row"><span class="medal">${medals[i] || (i + 1) + '.'}</span>${esc(names[a.player_id] || '?')}<span class="t">${(a.elapsed_ms / 1000).toFixed(1)}초</span><span class="pts">+${a.points}</span></div>`).join('');
+  if (revealed) {
+    const wrong = answers.filter(a => !a.correct);
+    if (wrong.length) html += `<div class="row wrong">오답 ${wrong.length}회: ${[...new Set(wrong.map(a => a.choice))].slice(0, 8).map(esc).join(', ')}</div>`;
+  } else if (!correct.length) html = '<div class="row wrong">아직 정답자가 없어요…</div>';
+  $('fast').innerHTML = html;
 }
 function confetti() {
   const c = $('confetti'); c.innerHTML = '';
@@ -290,7 +285,6 @@ function confetti() {
   for (let i = 0; i < 90; i++) { const s = document.createElement('i'); s.style.cssText = `left:${Math.random() * 100}vw;background:${colors[i % 6]};animation-delay:${Math.random() * 1.5}s;transform:rotate(${Math.random() * 360}deg)`; c.appendChild(s); }
   setTimeout(() => c.innerHTML = '', 5000);
 }
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 </script>
 <script src="../../shared/home.js"></script>
 </body>

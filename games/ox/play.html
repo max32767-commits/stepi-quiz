@@ -3,20 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
-<title>서바이벌 퀴즈 — 참가</title>
+<title>스피드 퀴즈 — 참가</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <link rel="stylesheet" href="ox.css">
 <style>
-  .textpad{display:flex;flex-direction:column;gap:10px;flex:1;justify-content:center}
+  .textpad{display:flex;flex-direction:column;gap:10px}
   .textpad input{font-size:24px;text-align:center;padding:18px}
-  .mine{font-size:28px;font-weight:900;text-align:center;color:var(--navy)}
+  .tbar{height:10px;background:#eef0fa;border-radius:5px;overflow:hidden}.tbar b{display:block;height:100%;background:var(--navy);width:100%;transition:width .25s linear}
+  .tbar.low b{background:var(--x)}
+  .tleft{font-size:34px;font-weight:900;color:var(--navy);text-align:center;font-variant-numeric:tabular-nums}
+  .tleft.low{color:var(--x)}
+  .score{display:flex;justify-content:space-between;align-items:center;background:#fff1e0;border-radius:12px;padding:10px 14px;font-weight:800;color:var(--orange)}
+  .score b{font-size:22px}
+  .feedback{text-align:center;font-size:22px;font-weight:900;min-height:1.5em}
+  .feedback.ok{color:var(--o)}.feedback.bad{color:var(--x)}
+  .oxpad{min-height:40vh}
 </style>
 </head>
 <body>
 <div class="play">
   <div class="topbar" style="border-radius:14px;border:1px solid var(--line)">
     <a class="brand" href="../../"><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>STEPI</a>
-    <span class="pill">⭕❌ 서바이벌 퀴즈</span>
+    <span class="pill">⚡ 스피드 퀴즈</span>
   </div>
 
   <!-- 입장 -->
@@ -34,22 +42,25 @@
     <div style="font-size:52px">🙋</div>
     <h2 id="wait-name"></h2>
     <p class="muted">입장했어요! 진행자가 시작할 때까지 기다려 주세요.</p>
-    <p><span class="badge alive">참가 중</span></p>
+    <p class="muted">문제가 나오면 <b>빨리 맞힐수록 점수가 높아요.</b> 틀려도 시간 안에 다시 시도할 수 있어요.</p>
   </section>
 
   <!-- 문제 -->
   <section id="q" class="hidden" style="display:flex;flex-direction:column;gap:12px;flex:1">
+    <div class="score"><span>내 점수</span><b id="my-score">0</b></div>
     <div class="card" style="padding:16px"><div class="muted" id="q-no" style="font-weight:700;color:var(--orange)"></div><div class="qtext" id="q-text"></div></div>
-    <div class="oxpad" id="pad-ox">
+    <div class="tleft" id="tleft"></div>
+    <div class="tbar" id="tbar"><b id="tfill"></b></div>
+    <div class="oxpad hidden" id="pad-ox">
       <button class="o" id="pick-o">O</button>
       <button class="x" id="pick-x">X</button>
     </div>
     <div class="textpad hidden" id="pad-text">
       <input id="text-in" placeholder="답을 입력하세요" autocomplete="off" enterkeyhint="send">
       <button class="btn orange" id="text-go">제출</button>
-      <div class="mine" id="text-mine"></div>
     </div>
-    <div class="status" id="q-status" style="padding:12px"></div>
+    <div class="feedback" id="feedback"></div>
+    <div class="status" id="q-status" style="padding:8px;font-size:18px"></div>
   </section>
 
   <!-- 결과 -->
@@ -67,12 +78,11 @@
 if (!window.sb) throw new Error('Supabase 설정 없음');
 const $ = id => document.getElementById(id);
 const qs = new URLSearchParams(location.search);
-let code = (qs.get('room') || '').replace(/\D/g, '').slice(0, 4), me = null, room = null, myChoice = null, lastQ = -1, channel = null;
+let code = (qs.get('room') || '').replace(/\D/g, '').slice(0, 4), me = null, room = null, lastQ = -1, solved = null, tick = null, busy = false;
 $('code').value = code;
 try { $('name').value = localStorage.getItem('ox:name') || ''; } catch (e) {}
 if (code) $('name').focus(); else $('code').focus();
 $('name').onkeydown = e => { if (e.key === 'Enter') $('go').click(); };
-const norm = s => String(s || '').replace(/\s+/g, '').toLowerCase();
 
 // ---- 입장 ----
 $('go').onclick = async () => {
@@ -93,15 +103,15 @@ $('go').onclick = async () => {
 
 // ---- 실시간 ----
 function subscribe() {
-  channel = sb.channel('ox-play-' + code + '-' + me.id)
+  sb.channel('speed-play-' + code + '-' + me.id)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ox_rooms', filter: 'code=eq.' + code }, p => { room = p.new; applyRoom(); })
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ox_players', filter: 'id=eq.' + me.id }, p => { me = p.new; applyRoom(); })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ox_players', filter: 'id=eq.' + me.id }, p => { me = p.new; $('my-score').textContent = me.score; })
     .subscribe();
   setInterval(async () => {
     const { data: r } = await sb.from('ox_rooms').select('*').eq('code', code).maybeSingle();
     const { data: p } = await sb.from('ox_players').select('*').eq('id', me.id).maybeSingle();
-    if (p) me = p;
-    if (r && (r.updated_at !== room?.updated_at)) { room = r; applyRoom(); } else if (p) applyRoom();
+    if (p) { me = p; $('my-score').textContent = me.score; }
+    if (r && r.updated_at !== room?.updated_at) { room = r; applyRoom(); }
   }, 3000);
 }
 
@@ -109,55 +119,66 @@ function subscribe() {
 function show(id) { ['join', 'wait', 'q', 'r'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
 function applyRoom() {
   if (!room) return;
+  $('my-score').textContent = me.score || 0;
   if (room.phase === 'lobby') { show('wait'); lastQ = -1; return; }
   if (room.phase === 'end') {
-    show('r');
-    $('r-icon').textContent = me.alive ? '🏆' : '👏';
-    $('r-text').textContent = me.alive ? '최후의 생존자!' : '게임 종료';
-    $('r-text').className = 'status ' + (me.alive ? 'ok' : '');
-    $('r-sub').textContent = me.alive ? '큰 화면을 보세요!' : '다음 게임을 기다려 주세요.';
-    return;
-  }
-  if (!me.alive) {
-    show('r'); $('r-icon').textContent = '💀'; $('r-text').textContent = '탈락!'; $('r-text').className = 'status bad';
-    $('r-sub').textContent = '부활 기회가 생기면 자동으로 다시 들어가요.'; return;
+    show('r'); $('r-icon').textContent = '🏁'; $('r-text').textContent = `최종 ${me.score}점`; $('r-text').className = 'status ok';
+    $('r-sub').textContent = '순위는 큰 화면을 보세요!'; return;
   }
   show('q');
-  if (room.q_index !== lastQ) { lastQ = room.q_index; myChoice = null; $('text-in').value = ''; restoreChoice(); }
-  const isText = room.qtype === 'text';
-  $('pad-ox').classList.toggle('hidden', isText); $('pad-text').classList.toggle('hidden', !isText);
-  $('q-no').textContent = 'Q' + (room.q_index + 1) + (isText ? ' · 글자로 답하기' : '');
+  const isOx = room.qtype === 'ox';
+  if (room.q_index !== lastQ) { lastQ = room.q_index; solved = null; $('text-in').value = ''; $('feedback').textContent = ''; $('feedback').className = 'feedback'; restore(); }
+  $('pad-ox').classList.toggle('hidden', !isOx); $('pad-text').classList.toggle('hidden', isOx);
+  $('q-no').textContent = 'Q' + (room.q_index + 1) + (isOx ? ' · O/X' : ' · 답을 적으세요');
   $('q-text').textContent = room.question || '';
   const revealed = room.phase === 'reveal';
-  if (isText) {
-    $('text-in').disabled = $('text-go').disabled = revealed || !!myChoice;
-    $('text-mine').textContent = myChoice ? '내 답: ' + myChoice : '';
-  } else {
-    ['o', 'x'].forEach(c => { const b = $('pick-' + c); b.disabled = revealed || !!myChoice; b.classList.toggle('picked', myChoice === c.toUpperCase()); });
-  }
+  setInputs(revealed || !!solved);
   if (revealed) {
-    const ok = isText ? (room.answer || '').split('/').map(norm).includes(norm(myChoice)) : myChoice === room.answer;
-    $('q-status').textContent = `정답은 ${isText ? (room.answer || '').split('/')[0] : room.answer}! ` + (myChoice ? (ok ? '맞혔어요 🎉' : '틀렸어요 😢') : '답을 안 냈어요');
-    $('q-status').className = 'status ' + (ok ? 'ok' : 'bad');
+    clearInterval(tick); $('tleft').textContent = '⏱ 종료'; $('tfill').style.width = '0%';
+    $('q-status').textContent = `정답은 "${room.answer}"` + (solved ? ` — +${solved.points}점 획득!` : ' — 다음 문제에서 만회해요');
+    $('q-status').className = 'status ' + (solved ? 'ok' : 'bad');
   } else {
-    $('q-status').textContent = myChoice ? '제출 완료! 정답 공개를 기다리세요' : (isText ? '답을 적고 제출하세요' : 'O 또는 X를 고르세요');
+    $('q-status').textContent = solved ? '정답! 다음 문제를 기다리세요' : (isOx ? 'O 또는 X를 고르세요' : '빨리 답을 적고 제출하세요');
     $('q-status').className = 'status';
+    startTimer();
   }
 }
-async function restoreChoice() {
-  const { data } = await sb.from('ox_answers').select('choice').eq('room_code', code).eq('q_index', room.q_index).eq('player_id', me.id).maybeSingle();
-  if (data) { myChoice = data.choice; applyRoom(); }
+function setInputs(off) { ['pick-o', 'pick-x', 'text-in', 'text-go'].forEach(i => $(i).disabled = off); if (!off && room.qtype !== 'ox') $('text-in').focus(); }
+function startTimer() {
+  clearInterval(tick);
+  const start = new Date(room.q_started_at).getTime(), limit = (room.time_limit || 30) * 1000;
+  const upd = () => {
+    const left = Math.max(0, limit - (Date.now() - start)) / 1000;
+    $('tleft').textContent = Math.ceil(left) + '초'; $('tfill').style.width = (left / (limit / 1000) * 100) + '%';
+    $('tbar').classList.toggle('low', left <= 5); $('tleft').classList.toggle('low', left <= 5);
+    if (left <= 0) { clearInterval(tick); setInputs(true); if (!solved) $('q-status').textContent = '시간 종료! 정답 공개를 기다리세요'; }
+  };
+  upd(); tick = setInterval(upd, 250);
 }
-async function submit(c) {
-  if (myChoice || room.phase !== 'question') return;
-  myChoice = c; applyRoom();
+async function restore() {
+  const { data } = await sb.from('ox_answers').select('points,elapsed_ms').eq('room_code', code).eq('q_index', room.q_index).eq('player_id', me.id).eq('correct', true).maybeSingle();
+  if (data) { solved = data; applyRoom(); }
+}
+async function submit(ans) {
+  if (busy || solved || room.phase !== 'question') return;
+  busy = true; setInputs(true);
   if (navigator.vibrate) navigator.vibrate(30);
-  const { error } = await sb.from('ox_answers').insert({ room_code: code, q_index: room.q_index, player_id: me.id, choice: c });
-  if (error && !/duplicate|unique/i.test(error.message)) { myChoice = null; applyRoom(); $('q-status').textContent = '전송 실패, 다시 눌러 주세요'; }
+  const { data, error } = await sb.rpc('ox_submit', { p_code: code, p_q_index: room.q_index, p_player_id: me.id, p_answer: ans });
+  busy = false;
+  if (error) { $('feedback').textContent = error.message.replace(/^.*?: /, ''); $('feedback').className = 'feedback bad'; setInputs(room.phase !== 'question'); return; }
+  if (data.correct) {
+    solved = data; me.score = data.score; $('my-score').textContent = data.score;
+    $('feedback').textContent = `🎉 정답! +${data.points}점` + (data.rank ? ` (${data.rank}번째)` : ''); $('feedback').className = 'feedback ok';
+    if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+    applyRoom();
+  } else {
+    $('feedback').textContent = '❌ 틀렸어요, 다시!'; $('feedback').className = 'feedback bad';
+    $('text-in').value = ''; setInputs(false);
+  }
 }
 $('pick-o').onclick = () => submit('O');
 $('pick-x').onclick = () => submit('X');
-$('text-go').onclick = () => { const v = $('text-in').value.trim().slice(0, 40); if (v) submit(v); };
+$('text-go').onclick = () => { const v = $('text-in').value.trim(); if (v) submit(v); };
 $('text-in').onkeydown = e => { if (e.key === 'Enter') $('text-go').click(); };
 </script>
 </body>

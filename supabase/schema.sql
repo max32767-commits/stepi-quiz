@@ -354,3 +354,63 @@ end $$;
 alter policy ox_rooms_all on ox_rooms using (false) with check (false);
 alter policy ox_players_all on ox_players using (false) with check (false);
 alter policy ox_answers_all on ox_answers using (false) with check (false);
+
+-- ------------------------------------------------------------
+-- 5. 스피드 퀴즈 (서바이벌 → 점수제): 서술형 답, 제한시간, 서버 채점, 정답 키는 비공개 ox_keys
+-- ------------------------------------------------------------
+alter table ox_rooms add column if not exists time_limit int not null default 30;
+alter table ox_rooms add column if not exists q_started_at timestamptz;
+alter table ox_players add column if not exists score int not null default 0;
+alter table ox_answers add column if not exists correct boolean;
+alter table ox_answers add column if not exists points int not null default 0;
+alter table ox_answers add column if not exists elapsed_ms int;
+alter table ox_answers drop constraint if exists ox_answers_room_code_q_index_player_id_key;   -- 재시도 허용
+create index if not exists ox_answers_player_q_idx on ox_answers(room_code, q_index, player_id);
+create table if not exists ox_keys (room_code text not null references ox_rooms(code) on delete cascade, q_index int not null, accept text not null, primary key (room_code, q_index));
+alter table ox_keys enable row level security;
+create or replace function ox_norm(t text) returns text language sql immutable as $$ select lower(regexp_replace(coalesce(t,''), '\s+', '', 'g')); $$;
+
+drop function if exists ox_set_room(text,text,text,int,text,text,text);
+create or replace function ox_set_room(p_pin text, p_code text, p_phase text, p_q_index int, p_question text, p_answer text, p_qtype text default 'text', p_accept text default null, p_time_limit int default null)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  perform require_host(p_pin);
+  update ox_rooms set phase = p_phase, q_index = p_q_index, question = p_question, answer = p_answer, qtype = coalesce(p_qtype,'text'),
+    time_limit = coalesce(p_time_limit, time_limit),
+    q_started_at = case when p_phase = 'question' then now() else q_started_at end,
+    updated_at = now() where code = p_code;
+  if p_phase = 'question' and p_accept is not null then
+    insert into ox_keys(room_code, q_index, accept) values (p_code, p_q_index, p_accept)
+      on conflict (room_code, q_index) do update set accept = excluded.accept;
+  end if;
+  if p_phase = 'lobby' then update ox_players set score = 0 where room_code = p_code; end if;
+end $$;
+
+create or replace function ox_submit(p_code text, p_q_index int, p_player_id bigint, p_answer text)
+returns json language plpgsql security definer set search_path = public as $$
+declare r ox_rooms; k text; ok boolean; el int; rk int; pts int := 0; sc int; prev ox_answers; a text := left(trim(p_answer), 40);
+begin
+  select * into r from ox_rooms where code = p_code;
+  if r is null then raise exception '방이 없어요'; end if;
+  if r.phase <> 'question' or r.q_index <> p_q_index then raise exception '지금은 답을 받지 않아요'; end if;
+  el := extract(epoch from (now() - r.q_started_at)) * 1000;
+  if el > (r.time_limit + 2) * 1000 then raise exception '시간이 끝났어요'; end if;
+  select * into prev from ox_answers where room_code = p_code and q_index = p_q_index and player_id = p_player_id and correct order by id limit 1;
+  if prev is not null then
+    select score into sc from ox_players where id = p_player_id;
+    return json_build_object('correct', true, 'points', prev.points, 'elapsed_ms', prev.elapsed_ms, 'already', true, 'score', sc);
+  end if;
+  select accept into k from ox_keys where room_code = p_code and q_index = p_q_index;
+  ok := ox_norm(a) = any (select ox_norm(x) from unnest(string_to_array(coalesce(k,''), '/')) x);
+  if ok then
+    select count(*) + 1 into rk from ox_answers where room_code = p_code and q_index = p_q_index and correct;
+    pts := 50 + round(50 * greatest(0, 1 - el::numeric / (r.time_limit * 1000))) + case rk when 1 then 30 when 2 then 20 when 3 then 10 else 0 end;
+    update ox_players set score = score + pts where id = p_player_id returning score into sc;
+  else
+    select score into sc from ox_players where id = p_player_id;
+  end if;
+  insert into ox_answers(room_code, q_index, player_id, choice, correct, points, elapsed_ms) values (p_code, p_q_index, p_player_id, a, ok, pts, el);
+  return json_build_object('correct', ok, 'points', pts, 'rank', case when ok then rk end, 'elapsed_ms', el, 'score', sc);
+end $$;
+grant execute on function ox_set_room(text,text,text,int,text,text,text,text,int), ox_submit(text,int,bigint,text) to anon, authenticated;
+alter policy ox_answers_insert on ox_answers with check (false);   -- 제출은 RPC 로만
