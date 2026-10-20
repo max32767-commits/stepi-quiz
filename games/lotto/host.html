@@ -9,7 +9,13 @@
 <link rel="stylesheet" href="lotto.css">
 <style>
   .drawbox{text-align:center;padding:30px 20px}
-  .drawbox .cur{height:150px;display:flex;align-items:center;justify-content:center;margin:10px 0}
+  .machine{position:relative;width:min(100%,520px);margin:0 auto}
+  .machine canvas{width:100%;height:auto;display:block;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffffff 0%,#eef1fb 55%,#d9ddf0 100%);box-shadow:inset 0 -18px 40px rgba(55,50,130,.12),0 14px 40px rgba(55,50,130,.18);border:6px solid #fff}
+  .machine .cur{position:absolute;left:50%;bottom:-54px;transform:translateX(-50%);height:120px;width:120px;display:flex;align-items:center;justify-content:center}
+  .machine.shake canvas{animation:shake .12s linear infinite}
+  @keyframes shake{0%{transform:translate(0,0)}25%{transform:translate(2px,-2px)}50%{transform:translate(-2px,1px)}75%{transform:translate(1px,2px)}100%{transform:translate(0,0)}}
+  .flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:50;transition:opacity .15s}
+  .drawbox .balls{margin-top:64px}
   .drawbox .balls .ball{width:72px;height:72px;font-size:28px}
   .wlist{display:grid;gap:8px;margin-top:10px}
   .wrow{display:flex;align-items:center;gap:12px;background:#f5f6fb;border-radius:12px;padding:10px 14px;font-weight:700}
@@ -72,7 +78,7 @@
     <div>
       <div class="card drawbox">
         <div class="qno">추첨 번호</div>
-        <div class="cur" id="cur"></div>
+        <div class="machine" id="machine"><canvas id="mc" width="520" height="520"></canvas><div class="cur" id="cur"></div></div>
         <div class="balls" id="drawn"></div>
         <div class="controls">
           <button class="btn orange" id="next" style="font-size:22px;padding:16px 36px">🎱 번호 뽑기</button>
@@ -101,7 +107,7 @@
     </div>
   </div>
 </section>
-<div class="confetti" id="confetti"></div>
+<div class="confetti" id="confetti"></div><div class="flash" id="flash"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -115,7 +121,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 const err = e => (e.message || '').replace(/^.*?: /, '');
 const color = n => 'c' + (Math.min(4, Math.floor((n - 1) / 10)) + 1);
 const ball = (n, cls = '') => `<span class="ball ${color(n)} ${cls}">${n}</span>`;
-let PIN = null, code = '', room = null, players = [], channel = null, pollTimer = null, busy = false;
+let PIN = null, code = '', room = null, players = [], channel = null, pollTimer = null, busy = false, pendingReveal = false, shown = 0;
 STEPI_PIN.require().then(p => { PIN = p; });
 
 // ---- 준비 ----
@@ -161,18 +167,70 @@ $('close').onclick = async () => {
 };
 $('next').onclick = async () => {
   if (busy) return; busy = true; $('next').disabled = true;
-  $('cur').innerHTML = `<span class="ball big c4">?</span>`;
-  let spin = setInterval(() => { $('cur').firstChild.textContent = Math.floor(Math.random() * 45) + 1; $('cur').firstChild.className = 'ball big ' + color(+$('cur').firstChild.textContent); }, 60);
+  $('cur').innerHTML = ''; machine.spin(true); sfx.rumble(true); $('machine').classList.add('shake');
   try {
     const n = await rpc('lotto_draw_next', {});
-    await new Promise(r => setTimeout(r, 1500)); clearInterval(spin);
+    pendingReveal = true;                        // 실시간 갱신이 와도 결과를 먼저 보여주지 않음
+    await new Promise(r => setTimeout(r, 2200));
+    $('machine').classList.remove('shake'); sfx.rumble(false);
+    await machine.eject(n);                      // 공이 아래로 튀어나오는 연출
+    sfx.ding(); flash();
     $('cur').innerHTML = ball(n, 'big pop');
+    pendingReveal = false; shown = (room.drawn || []).length;
     await load();
-  } catch (e) { clearInterval(spin); $('cur').innerHTML = ''; }
+    if (shown >= 6) setTimeout(() => sfx.fanfare(), 400);
+  } catch (e) { machine.spin(false); sfx.rumble(false); $('machine').classList.remove('shake'); pendingReveal = false; }
   busy = false; $('next').disabled = false;
 };
+function flash() { const f = $('flash'); f.style.opacity = '.7'; setTimeout(() => f.style.opacity = '0', 120); }
+
+// ---- 추첨기 애니메이션 (canvas) ----
+const machine = (() => {
+  const cv = $('mc'), ctx = cv.getContext('2d'), W = 520, R = 240, C = W / 2;
+  const cols = ['#f5b800', '#4a90e2', '#e8553d', '#8d8d8d', '#3fb24f'];
+  const balls = [...Array(45)].map((_, i) => { const a = Math.random() * 6.28, d = Math.random() * (R - 40); return { n: i + 1, x: C + Math.cos(a) * d, y: C + Math.sin(a) * d, vx: (Math.random() - .5) * 2, vy: (Math.random() - .5) * 2, r: 19, c: cols[Math.min(4, Math.floor(i / 10))] }; });
+  let fast = false, ejecting = null, raf = null;
+  function step() {
+    const g = fast ? 0 : 0.25, speed = fast ? 11 : 1.2;
+    balls.forEach(b => {
+      if (ejecting && ejecting.b === b) return;
+      if (fast) { const dx = b.x - C, dy = b.y - C, d = Math.hypot(dx, dy) || 1; b.vx += (-dy / d) * 0.9 + (Math.random() - .5) * 2; b.vy += (dx / d) * 0.9 + (Math.random() - .5) * 2; }
+      else b.vy += g;
+      const sp = Math.hypot(b.vx, b.vy); if (sp > speed) { b.vx *= speed / sp; b.vy *= speed / sp; }
+      b.x += b.vx; b.y += b.vy;
+      const dx = b.x - C, dy = b.y - C, d = Math.hypot(dx, dy);
+      if (d > R - b.r - 8) { const nx = dx / d, ny = dy / d; b.x = C + nx * (R - b.r - 8); b.y = C + ny * (R - b.r - 8); const dot = b.vx * nx + b.vy * ny; b.vx -= 1.6 * dot * nx; b.vy -= 1.6 * dot * ny; if (!fast) { b.vx *= .8; b.vy *= .8; } }
+    });
+    ctx.clearRect(0, 0, W, W);
+    balls.forEach(b => drawBall(b.x, b.y, b.r, b.c, b.n));
+    if (ejecting) { const e = ejecting; e.t += 1 / 40; const y = e.b.y + (W + 40 - e.b.y) * Math.min(1, e.t), x = e.b.x + (C - e.b.x) * Math.min(1, e.t); drawBall(x, y, e.b.r + 10 * Math.min(1, e.t), e.b.c, e.b.n); if (e.t >= 1) { ejecting = null; e.done(); } }
+    raf = requestAnimationFrame(step);
+  }
+  function drawBall(x, y, r, c, n) {
+    ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fill();
+    const gr = ctx.createRadialGradient(x - r * .35, y - r * .4, r * .05, x, y, r); gr.addColorStop(0, 'rgba(255,255,255,.75)'); gr.addColorStop(.4, 'rgba(255,255,255,0)'); gr.addColorStop(1, 'rgba(0,0,0,.35)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.round(r * .9)}px Pretendard,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(n, x, y + 1);
+  }
+  step();
+  return {
+    spin(on) { fast = on; },
+    eject(n) { return new Promise(done => { fast = false; const b = balls.find(x => x.n === n); b.vx = b.vy = 0; ejecting = { b, t: 0, done: () => { b.x = C + (Math.random() - .5) * 60; b.y = C - 150; b.vx = (Math.random() - .5) * 4; b.vy = 0; done(); } }; }); }
+  };
+})();
+
+// ---- 효과음 (Web Audio 합성) ----
+const sfx = (() => {
+  let ac = null, rum = null; const A = () => (ac = ac || new (window.AudioContext || window.webkitAudioContext)());
+  return {
+    rumble(on) { try { const a = A(); if (on && !rum) { const src = a.createBufferSource(), buf = a.createBuffer(1, a.sampleRate * 2, a.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (i % 1500 < 120 ? 1 : .15); src.buffer = buf; src.loop = true; const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 500; const g = a.createGain(); g.gain.value = .35; src.connect(f).connect(g).connect(a.destination); src.start(); rum = src; } if (!on && rum) { rum.stop(); rum = null; } } catch (e) {} },
+    ding() { try { const a = A(), t = a.currentTime; [880, 1320].forEach((f, i) => { const o = a.createOscillator(), g = a.createGain(); o.frequency.value = f; g.gain.setValueAtTime(0, t + i * .08); g.gain.linearRampToValueAtTime(.5, t + i * .08 + .02); g.gain.exponentialRampToValueAtTime(.001, t + i * .08 + .9); o.connect(g).connect(a.destination); o.start(t + i * .08); o.stop(t + 1.2); }); } catch (e) {} },
+    fanfare() { try { const a = A(), t = a.currentTime; [523, 659, 784, 1047].forEach((f, i) => { const o = a.createOscillator(), g = a.createGain(); o.type = 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(0, t + i * .15); g.gain.linearRampToValueAtTime(.4, t + i * .15 + .03); g.gain.exponentialRampToValueAtTime(.001, t + i * .15 + .8); o.connect(g).connect(a.destination); o.start(t + i * .15); o.stop(t + 2); }); } catch (e) {} }
+  };
+})();
+
 $('finish').onclick = async () => { await rpc('lotto_finish', {}); await load(); };
-$('again').onclick = async () => { await rpc('lotto_set_phase', { p_phase: 'pick' }); enterLobby(); };
+$('again').onclick = async () => { shown = 0; $('cur').innerHTML = ''; await rpc('lotto_set_phase', { p_phase: 'pick' }); enterLobby(); };
 $('newroom').onclick = () => location.reload();
 
 // ---- 렌더 ----
@@ -180,12 +238,12 @@ function show(id) { ['setup', 'lobby', 'draw', 'result'].forEach(s => $(s).class
 const hits = p => p.numbers ? p.numbers.filter(n => (room.drawn || []).includes(n)).length : 0;
 function render() {
   if (!room) return;
-  const drawn = room.drawn || [];
+  const all = room.drawn || []; if (!pendingReveal) shown = all.length; const drawn = all.slice(0, shown);
   $('lobby-n').textContent = players.length; $('side-n').textContent = players.length;
   $('lobby-done').textContent = players.filter(p => p.numbers).length;
   $('lobby-players').innerHTML = players.map(p => `<span class="${p.numbers ? 'ok' : ''}">${esc(p.name)}${p.numbers ? ' ✓' : ''}</span>`).join('');
   $('drawn').innerHTML = [...Array(6)].map((_, i) => drawn[i] ? ball(drawn[i]) : '<span class="ball empty">?</span>').join('');
-  $('next').classList.toggle('hidden', drawn.length >= 6); $('finish').classList.toggle('hidden', drawn.length < 6);
+  $('next').classList.toggle('hidden', all.length >= 6); $('finish').classList.toggle('hidden', all.length < 6 || pendingReveal);
   const live = players.filter(p => p.numbers).map(p => ({ ...p, h: hits(p) })).sort((a, b) => b.h - a.h || new Date(a.submitted_at) - new Date(b.submitted_at)).slice(0, 15);
   $('live').innerHTML = live.map(p => `<div class="wrow"><span class="nm">${esc(p.name)}</span><span class="hits">${p.h}개</span></div>`).join('');
   if (room.phase === 'done' && room.winners) {

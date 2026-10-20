@@ -16,6 +16,7 @@
   .mine .ball{width:46px;height:46px;font-size:18px}
   .hitcount{text-align:center;font-size:22px;font-weight:900;color:var(--navy)}
   .rankbig{text-align:center;font-size:40px;font-weight:900;color:var(--orange)}
+  .ball.spin{animation:spinb .5s linear infinite}@keyframes spinb{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -66,7 +67,7 @@ const $ = id => document.getElementById(id);
 const qs = new URLSearchParams(location.search);
 const color = n => 'c' + (Math.min(4, Math.floor((n - 1) / 10)) + 1);
 const ball = (n, cls = '') => `<span class="ball ${color(n)} ${cls}">${n}</span>`;
-let code = (qs.get('room') || '').replace(/\D/g, '').slice(0, 4), me = null, room = null, sel = [];
+let code = (qs.get('room') || '').replace(/\D/g, '').slice(0, 4), me = null, room = null, sel = [], shown = 0, revealTimer = null;
 $('code').value = code;
 try { $('name').value = localStorage.getItem('ox:name') || ''; } catch (e) {}
 if (code) $('name').focus(); else $('code').focus();
@@ -119,20 +120,26 @@ function renderPick() {
 // ---- 추첨 보기 ----
 function render() {
   if (!room) return;
-  if (room.phase === 'pick') { show('pick'); renderPick(); return; }
+  if (room.phase === 'pick') { show('pick'); renderPick(); shown = 0; return; }
   show('watch');
-  const drawn = room.drawn || [], mine = me.numbers || [];
-  $('drawn').innerHTML = [...Array(6)].map((_, i) => drawn[i] ? ball(drawn[i], i === drawn.length - 1 && room.phase === 'draw' ? 'pop' : '') : '<span class="ball empty">?</span>').join('');
+  const all = room.drawn || [], mine = me.numbers || [];
+  if (all.length < shown) shown = all.length;
+  // 새 번호가 오면 큰 화면 연출에 맞춰 2.5초 뒤에 공개 (그동안 공이 돌아가는 표시)
+  if (all.length > shown && !revealTimer) {
+    revealTimer = setTimeout(() => { revealTimer = null; shown = Math.min(shown + 1, all.length); if (navigator.vibrate) navigator.vibrate(40); render(); }, 2500);
+  }
+  const drawn = all.slice(0, shown), spinning = all.length > shown;
+  $('drawn').innerHTML = [...Array(6)].map((_, i) => drawn[i] ? ball(drawn[i], i === shown - 1 ? 'pop' : '') : (i === shown && spinning ? '<span class="ball c4 spin">?</span>' : '<span class="ball empty">?</span>')).join('');
   $('mine2').innerHTML = mine.length ? mine.map(n => ball(n, drawn.includes(n) ? 'hit' : (drawn.length ? 'miss' : ''))).join('') : '<span class="muted">번호를 제출하지 않았어요</span>';
   const h = mine.filter(n => drawn.includes(n)).length;
   $('hitcount').textContent = mine.length ? `${h}개 맞춤` : '';
-  if (room.phase === 'done' && room.winners) {
+  if (room.phase === 'done' && room.winners && shown >= all.length) {
     const w = (room.winners || []).find(x => x.id === me.id);
     const medal = { 1: '🥇 1등!', 2: '🥈 2등!', 3: '🥉 3등!' };
     $('watch-title').textContent = '추첨 완료'; $('rank').textContent = w && w.rank ? medal[w.rank] : '';
     $('watch-sub').textContent = w && w.rank ? '큰 화면 앞으로 나오세요!' : '아쉽지만 다음 기회에 😢';
     if (w && w.rank && navigator.vibrate) navigator.vibrate([80, 50, 80, 50, 160]);
-  } else { $('watch-title').textContent = `추첨 중… (${drawn.length}/6)`; $('rank').textContent = ''; $('watch-sub').textContent = '큰 화면을 보세요'; }
+  } else { $('watch-title').textContent = spinning ? '추첨 중… 🎱' : `추첨 중 (${shown}/6)`; $('rank').textContent = ''; $('watch-sub').textContent = '큰 화면을 보세요'; }
 }
 function show(id) { ['join', 'pick', 'watch'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
 </script>
