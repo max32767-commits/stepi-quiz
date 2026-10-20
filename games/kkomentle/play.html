@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>꼬멘틀 — 참가</title>
+<title>꼬맨틀 — 참가</title>
 <style>
   :root{color-scheme:light; --bg:#fff; --fg:#111; --muted:#666; --line:#ddd; --field:#fff; --bar:#6fb36f; --bar-bg:#eee; --hl:#fff6cc; --btn:#f3f3f3; }
   :root.dark{ --bg:#1a1a1b; --fg:#e6e6e6; --muted:#9a9a9a; --line:#3a3a3c; --field:#2a2a2c; --bar:#4e9c4e; --bar-bg:#2e2e30; --hl:#3a3520; --btn:#2e2e30; color-scheme:dark }
@@ -49,7 +49,7 @@
 
   </head>
 <body>
-<h1>꼬멘틀 - 단어 유사도 추측 게임</h1>
+<h1>꼬맨틀 - 단어 유사도 추측 게임</h1>
   
   <p>정답 단어를 맞혀보세요. 여러 사람이 같은 정답 단어를 함께 맞힙니다. 누군가 맞히거나 진행자가 새 라운드를 열면 정답이 공개되고 다음 라운드로 넘어갑니다.</p>
   <p id="intro" class="muted">라운드를 불러오는 중…</p>
@@ -140,7 +140,7 @@ async function loadRound() {
 }
 function renderIntro() {
   if (!roundId) return;
-  let t = `${roundId}번째 꼬멘틀입니다. `;
+  let t = `${roundId}번째 꼬맨틀입니다. `;
   if (bench && bench.top1 != null)
     t += `정답 단어와 가장 유사한 단어의 유사도는 ${fmt(bench.top1)}, 10번째로 유사한 단어의 유사도는 ${fmt(bench.top10)}, 1,000번째로 유사한 단어의 유사도는 ${fmt(bench.top1000)}입니다.`;
   $("intro").textContent = t;

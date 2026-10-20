@@ -3,7 +3,7 @@
 -- Supabase 대시보드 > SQL Editor 에 전체를 붙여넣고 Run 하세요.
 -- 여러 번 실행해도 안전합니다.
 --
---  1) 꼬멘틀 (단어 유사도 추측)  : words / rounds / guesses + 함수 5개
+--  1) 꼬맨틀 (단어 유사도 추측)  : words / rounds / guesses + 함수 5개
 --  2) OX 서바이벌 퀴즈           : ox_rooms / ox_players / ox_answers
 --
 -- 레크리에이션용이라 로그인 없이 anon 키로 읽고 쓰도록 정책을 열어 둡니다.
@@ -11,7 +11,7 @@
 -- ============================================================
 
 -- ------------------------------------------------------------
--- 1. 꼬멘틀
+-- 1. 꼬맨틀
 -- ------------------------------------------------------------
 create extension if not exists vector;
 
@@ -192,7 +192,7 @@ alter table ox_rooms replica identity full;
 alter table ox_players replica identity full;
 
 -- ------------------------------------------------------------
--- 3. 꼬멘틀 진행자 — 정답 직접 지정 (games/kkomentle/host.html)
+-- 3. 꼬맨틀 진행자 — 정답 직접 지정 (games/kkomentle/host.html)
 --    PIN 을 걸고 싶으면 SQL Editor 에서:
 --      insert into private_settings(key,value) values ('kkomentle_pin','1234') on conflict (key) do update set value=excluded.value;
 -- ------------------------------------------------------------

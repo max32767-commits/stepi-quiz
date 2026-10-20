@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-꼬멘틀 단어 벡터 업로드 (이미 완료됨 — 다시 올릴 때만 사용)
+꼬맨틀 단어 벡터 업로드 (이미 완료됨 — 다시 올릴 때만 사용)
 
   1) fastText 한국어 벡터: https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.ko.300.vec.gz (1.2GB)
   2) 정답 후보 목록: https://github.com/newsjelly/semantle-ko 의 data/secrets.txt

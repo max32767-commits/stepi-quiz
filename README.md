@@ -16,7 +16,7 @@
 | 🔍 확대 사진 퀴즈 `games/zoom` | 진행자 혼자 | 없음 | 사진을 단계별로 넓혀 보여주며 맞히기 |
 | ⚡ 스피드 퀴즈 `games/ox` | 진행자 큰 화면 + 참가자 휴대폰 | Supabase | 주관식(또는 OX) 정답을 폰으로 제출, 빨리 맞힐수록 높은 점수, 총점 1위 우승 |
 | 🎱 실시간 로또 `games/lotto` | 진행자 큰 화면 + 참가자 휴대폰 | Supabase | 폰으로 6개 번호 선택 → 큰 화면 추첨 → 맞힌 수로 1·2·3등(인원 설정) |
-| 🧠 꼬멘틀 `games/kkomentle` | 여럿이 휴대폰 | Supabase | 단어 의미 유사도 추측 협동 게임 |
+| 🧠 꼬맨틀 `games/kkomentle` | 여럿이 휴대폰 | Supabase | 단어 의미 유사도 추측 협동 게임 |
 
 새 게임 추가: `games/<id>/index.html` 폴더를 만들고 `games.js` 배열에 한 줄 추가. 각 게임 페이지 끝에 `<script src="../../shared/home.js"></script>`를 넣으면 "랜덤 게임 홈" 버튼이 붙습니다.
 
@@ -25,24 +25,24 @@
 1. 저장소 Settings → Pages → Build and deployment: **Deploy from a branch**, Branch `main` / `(root)` → Save
 2. 1~2분 뒤 위 주소로 접속
 
-## 멀티플레이 설정 (OX 퀴즈·꼬멘틀) — 설정 완료
+## 멀티플레이 설정 (OX 퀴즈·꼬맨틀) — 설정 완료
 
-Supabase 프로젝트 `stepi-quiz`에 연결돼 있고(`shared/supabase-config.js`), 스키마와 꼬멘틀 단어 벡터(68,550단어 · 정답 후보 3,260개)까지 올라가 있어 바로 동작합니다.
+Supabase 프로젝트 `stepi-quiz`에 연결돼 있고(`shared/supabase-config.js`), 스키마와 꼬맨틀 단어 벡터(68,550단어 · 정답 후보 3,260개)까지 올라가 있어 바로 동작합니다.
 
 다른 프로젝트로 옮길 때:
 1. SQL Editor에 `supabase/schema.sql` 전체를 붙여넣고 Run
 2. Project Settings → API의 **Project URL**과 **publishable(anon)** 키를 `shared/supabase-config.js`에 입력 후 커밋
    - 공개돼도 되는 키입니다. **service_role 키는 절대 넣지 마세요.**
-3. (꼬멘틀만) 단어 벡터 업로드 — `supabase/upload_words.py` 상단 설명대로 한 번 실행
+3. (꼬맨틀만) 단어 벡터 업로드 — `supabase/upload_words.py` 상단 설명대로 한 번 실행
 
 > 레크리에이션용이라 로그인 없이 누구나 쓰도록 DB 정책을 열어 두었습니다. 행사 후에는 Supabase 프로젝트를 Pause 해 두세요.
 
-## 진행자 PIN (OX 퀴즈·꼬멘틀 공통)
+## 진행자 PIN (OX 퀴즈·꼬맨틀 공통)
 
 - 진행자 화면(`games/ox/host.html`, `games/kkomentle/host.html`)은 **진행자 PIN**을 넣어야 열리고, 라운드 열기·방 운영 같은 동작은 서버(RPC)에서도 PIN을 검사합니다. URL만 안다고 정답을 보거나 게임을 조작할 수 없습니다.
 - PIN 설정·변경: **`admin/`** (슈퍼관리자 페이지). 처음 한 번 슈퍼관리자 PIN과 진행자 PIN을 정하고, 이후엔 슈퍼관리자 PIN으로 언제든 바꿉니다. 배포 직후 반드시 먼저 설정하세요.
 
-## 꼬멘틀 사용법
+## 꼬맨틀 사용법
 
 - 진행자: `games/kkomentle/host.html` (PIN) → 화면의 QR을 참가자에게 보여주고, **정답 단어를 넣어 새 라운드**를 엽니다 (사전 12.8만 단어 중에서만, 앞글자 찾기 지원). 비우면 랜덤 정답. 새 라운드를 열면 진행 중 라운드는 종료되고 그 정답이 공개됩니다.
 - 참가자: QR 또는 `games/kkomentle/play.html` 에서 이름 입력 후 단어 추측. 모두 같은 라운드에 참여합니다.

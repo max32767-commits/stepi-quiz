@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""사전에 없는 단어를 꼬멘틀 정답으로 쓰기 위한 SQL 생성기.
+"""사전에 없는 단어를 꼬맨틀 정답으로 쓰기 위한 SQL 생성기.
    python3 make_word_sql.py cc.ko.300.vec.gz 연찬회 단합대회 ... > words.sql  → Supabase SQL Editor 에 붙여넣고 Run
    (fastText 어휘 200만 개에 있는 단어만 가능. 벡터 파일: https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.ko.300.vec.gz)"""
 import sys, gzip, unicodedata
