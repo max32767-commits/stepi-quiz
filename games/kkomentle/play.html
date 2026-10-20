@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>꼬멘틀 — 참가</title>
+<style>
+  :root{color-scheme:light; --bg:#fff; --fg:#111; --muted:#666; --line:#ddd; --field:#fff; --bar:#6fb36f; --bar-bg:#eee; --hl:#fff6cc; --btn:#f3f3f3; }
+  :root.dark{ --bg:#1a1a1b; --fg:#e6e6e6; --muted:#9a9a9a; --line:#3a3a3c; --field:#2a2a2c; --bar:#4e9c4e; --bar-bg:#2e2e30; --hl:#3a3520; --btn:#2e2e30; color-scheme:dark }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg)}
+  body{font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:16px;line-height:1.5;
+       max-width:640px;margin:0 auto;padding-block:16px 64px;
+       padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  h1{font-size:1.5em;margin:0 0 .5em}
+  p{margin:.5em 0}
+  .muted{color:var(--muted)}
+  form{display:flex;gap:6px;margin:1em 0 .5em}
+  input[type=text]{flex:1;min-width:0;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:var(--field);color:var(--fg)}
+  button{font:inherit;padding:8px 14px;border:1px solid var(--line);border-radius:4px;background:var(--btn);color:var(--fg);cursor:pointer;white-space:nowrap}
+  button:disabled{opacity:.5;cursor:default}
+  #msg{min-height:1.5em;font-weight:700}
+  #done{font-weight:700;margin:.5em 0}
+  table{width:100%;border-collapse:collapse;margin-top:.5em;font-variant-numeric:tabular-nums}
+  th,td{text-align:left;padding:6px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{font-weight:700;color:var(--muted);font-size:.9em}
+  td.n,th.n{text-align:right;white-space:nowrap}
+  td.bar{width:28%}
+  .bar i{display:block;height:12px;background:var(--bar-bg);border-radius:2px;overflow:hidden}
+  .bar i b{display:block;height:100%;background:var(--bar)}
+  tr.latest td{font-weight:700;background:var(--hl)}
+  tr.hit td{font-weight:700}
+  tr.hit td.w::after{content:" ✓"}
+  td.p{color:var(--muted);font-size:.9em}
+  .opts{margin-top:2em;font-size:.95em}
+  .opts label{display:block;margin:.3em 0}
+  details{margin:.8em 0} summary{cursor:pointer;font-weight:700}
+  footer{margin-top:3em;font-size:.85em;color:var(--muted)}
+  #name-box{margin:1em 0}
+  td.w small{display:none}
+  @media (max-width:480px){
+    body{font-size:15px}
+    th.p,td.p{display:none}            /* 좁으면 이름은 단어 아래 작은 글씨로 */
+    td.w small{display:block;color:var(--muted);font-weight:400;font-size:.8em}
+    td.bar{width:22%}
+    form button{padding:8px 10px}
+  }
+</style>
+
+  </head>
+<body>
+<h1>꼬멘틀 - 단어 유사도 추측 게임</h1>
+  
+  <p>정답 단어를 맞혀보세요. 여러 사람이 같은 정답 단어를 함께 맞힙니다. 누군가 맞히거나 진행자가 새 라운드를 열면 정답이 공개되고 다음 라운드로 넘어갑니다.</p>
+  <p id="intro" class="muted">라운드를 불러오는 중…</p>
+
+  <div id="name-box">
+    <form id="name-form">
+      <input type="text" id="name" maxlength="20" placeholder="이름 (다른 사람에게 보입니다)" autocomplete="off" enterkeyhint="go">
+      <button>시작</button>
+    </form>
+  </div>
+
+  <div id="game" hidden>
+    <form id="guess-form">
+      <input type="text" id="guess" placeholder="단어를 입력하세요" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send">
+      <button id="submit">추측하기</button>
+    </form>
+    <div id="msg"></div>
+    <div id="done" hidden></div>
+    <p><button id="next" hidden>다음 라운드</button>
+       <label style="margin-left:8px"><input type="checkbox" id="only-mine"> 내 추측만 보기</label></p>
+
+    <table id="table">
+      <thead><tr><th class="n">#</th><th class="p">이름</th><th>추측한 단어</th><th class="n">유사도</th><th class="n">유사도 순위</th><th></th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="opts">
+    <label><input type="checkbox" id="dark"> 다크 모드</label>
+  </div>
+
+  <details><summary>질문과 답변</summary>
+    <p><b>유사도가 뭔가요?</b> 단어의 뜻과 쓰임이 가까울수록 높은 점수(최대 100)가 나옵니다. 철자가 비슷한 것과는 관계가 없습니다. fastText 한국어 단어 벡터의 코사인 유사도를 100배 한 값입니다.</p>
+    <p><b>유사도 순위는요?</b> 정답과 가장 가까운 1,000개 단어 안에 들면 몇 번째인지 보여줍니다. 밖이면 "1000위 밖"입니다.</p>
+    <p><b>여럿이 어떻게 하나요?</b> 지금 접속한 모든 사람이 같은 정답을 봅니다. 다른 사람의 추측도 표에 실시간으로 올라옵니다. 정답은 진행자가 정하거나 랜덤으로 뽑힙니다.</p>
+  </details>
+
+  <footer>꼬맨틀(뉴스젤리)과 David Turner의 Semantle을 바탕으로 만든 멀티플레이 버전입니다.</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../../shared/supabase-config.js"></script>
+<script src="../../shared/supabase-client.js"></script>
+<script>
+if (!window.sb) throw new Error("Supabase 설정 없음");
+
+
+
+const $ = id => document.getElementById(id);
+
+let me = "", roundId = null, roundRow = null, bench = null;
+let guesses = [], latestId = null;
+let channel = null, pollTimer = null, autoNext = null;
+
+// ---- 다크 모드 ----
+try { if (localStorage.getItem("kkomentle:dark") === "1") { document.documentElement.classList.add("dark"); $("dark").checked = true; } } catch (e) {}
+$("dark").onchange = e => { document.documentElement.classList.toggle("dark", e.target.checked); try { localStorage.setItem("kkomentle:dark", e.target.checked ? "1" : "0"); } catch (x) {} };
+$("only-mine").onchange = render;
+
+// ---- 입장 ----
+try { me = localStorage.getItem("kkomentle:name") || ""; } catch (e) {}
+if (me) { $("name").value = me; enter(); }
+$("name-form").onsubmit = e => { e.preventDefault(); enter(); };
+async function enter() {
+  me = $("name").value.trim().slice(0, 20);
+  if (!me) return;
+  try { localStorage.setItem("kkomentle:name", me); } catch (e) {}
+  $("name-box").hidden = true; $("game").hidden = false;
+  await loadRound();
+  $("guess").focus();
+}
+
+// ---- 라운드 ----
+async function loadRound() {
+  const { data, error } = await sb.rpc("current_round", { p_player: me });
+  if (error) return msg(error.message);
+  if (data !== roundId) {
+    roundId = data; guesses = []; latestId = null; bench = null;
+    $("done").hidden = true; $("next").hidden = true;
+    $("guess").disabled = $("submit").disabled = false;
+    const { data: rows } = await sb.from("guesses").select("*").eq("round_id", roundId).order("created_at");
+    guesses = rows || [];
+    subscribe();
+    const { data: b } = await sb.rpc("round_benchmarks", { p_round: roundId });
+    bench = b;
+  }
+  await refreshRound();
+  renderIntro(); render();
+}
+function renderIntro() {
+  if (!roundId) return;
+  let t = `${roundId}번째 꼬멘틀입니다. `;
+  if (bench && bench.top1 != null)
+    t += `정답 단어와 가장 유사한 단어의 유사도는 ${fmt(bench.top1)}, 10번째로 유사한 단어의 유사도는 ${fmt(bench.top10)}, 1,000번째로 유사한 단어의 유사도는 ${fmt(bench.top1000)}입니다.`;
+  $("intro").textContent = t;
+}
+async function refreshRound() {
+  const { data } = await sb.from("rounds").select("id,created_by,created_at,finished_at,winner,gave_up").eq("id", roundId).single();
+  roundRow = data;
+  if (roundRow?.finished_at) await showDone();
+}
+function subscribe() {
+  if (channel) sb.removeChannel(channel);
+  channel = sb.channel("guesses-" + roundId)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "guesses", filter: "round_id=eq." + roundId },
+      p => { if (!guesses.some(g => g.id === p.new.id)) { guesses.push(p.new); render(); if (p.new.rank === 0) refreshRound(); } })
+    .subscribe();
+  clearInterval(pollTimer);
+  pollTimer = setInterval(() => { if (!roundRow?.finished_at) refreshRound(); }, 5000);
+}
+async function showDone() {
+  const { data: ans } = await sb.rpc("reveal_answer", { p_round: roundId });
+  const n = guesses.length;
+  $("done").textContent = roundRow.gave_up
+    ? `진행자가 라운드를 넘겼습니다. 정답 단어는 "${ans}"였습니다. 잠시 후 다음 라운드로 넘어갑니다.`
+    : `${roundRow.winner === me ? "정답 단어를 맞혔습니다!" : roundRow.winner + " 님이 정답 단어를 맞혔습니다."} 정답은 "${ans}", 모두 ${n}번째 추측만에 맞혔네요.`;
+  $("done").hidden = false; $("next").hidden = false;
+  clearTimeout(autoNext); autoNext = setTimeout(() => $("next").click(), 6000);
+  $("guess").disabled = $("submit").disabled = true;
+}
+$("next").onclick = async () => { roundId = null; await loadRound(); $("guess").focus(); };
+
+// ---- 추측 ----
+$("guess-form").onsubmit = async e => {
+  e.preventDefault();
+  const word = $("guess").value.trim();
+  if (!word) return;
+  const dup = guesses.find(g => g.player === me && g.word === word);
+  if (dup) { latestId = dup.id; render(); return msg(`이미 추측한 단어입니다: ${word}`); }
+  $("submit").disabled = true; msg("");
+  const { data, error } = await sb.rpc("make_guess", { p_round: roundId, p_player: me, p_word: word });
+  $("submit").disabled = false;
+  if (error) return msg(error.message.replace(/^.*?: /, ""));
+  $("guess").value = ""; $("guess").focus();
+  if (!guesses.some(g => g.player === me && g.word === data.word)) {
+    guesses.push({ id: "tmp" + Date.now(), round_id: roundId, player: me, word: data.word,
+                   similarity: data.similarity, rank: data.rank, created_at: new Date().toISOString() });
+  }
+  latestId = guesses.find(g => g.player === me && g.word === data.word).id;
+  render();
+  if (data.correct) await refreshRound();
+};
+
+// ---- 표 ----
+function render() {
+  const mineOnly = $("only-mine").checked;
+  const all = guesses.map((g, i) => ({ ...g, no: i + 1 }));
+  let rows = mineOnly ? all.filter(g => g.player === me) : all;
+  const latest = rows.find(g => g.id === latestId);
+  rows = rows.filter(g => g.id !== latestId).sort((a, b) => b.similarity - a.similarity);
+  if (latest) rows.unshift(latest);
+  $("tbody").innerHTML = rows.map(g => `
+    <tr class="${g.id === latestId ? "latest" : ""} ${g.rank === 0 ? "hit" : ""}">
+      <td class="n">${g.no}</td>
+      <td class="p">${esc(g.player)}</td>
+      <td class="w">${esc(g.word)}<small>${esc(g.player)}</small></td>
+      <td class="n">${fmt(g.similarity)}</td>
+      <td class="n">${rankTxt(g.rank)}</td>
+      <td class="bar"><i><b style="width:${barW(g.rank)}%"></b></i></td>
+    </tr>`).join("");
+}
+const barW = r => r == null ? 0 : r === 0 ? 100 : Math.round((1000 - r) / 10);
+const fmt = s => (s * 100).toFixed(2);
+const rankTxt = r => r == null ? "1000위 밖" : r === 0 ? "정답!" : r + "위";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const msg = m => $("msg").textContent = m;
+</script>
+<script src="../../shared/home.js"></script>
+</body>
+</html>

@@ -223,3 +223,134 @@ returns json language sql security definer set search_path = public as $$
   from rounds r where r.finished_at is null order by r.id desc limit 1;
 $$;
 grant execute on function start_round(text, text, text), round_status() to anon, authenticated;
+
+-- ------------------------------------------------------------
+-- 4. 진행자 PIN 체계 + 진행자용 RPC (2026-10-21)
+--    PIN 은 admin/ 페이지(슈퍼관리자)에서 설정·변경. 진행자 동작은 RPC 에서 PIN 검사.
+--    OX 테이블은 anon 직접 쓰기 금지(RPC 로만), 읽기 허용, 답 제출만 insert 허용.
+-- ------------------------------------------------------------
+alter table ox_rooms add column if not exists qtype text not null default 'ox';   -- 'ox' | 'text'
+alter table ox_answers drop constraint if exists ox_answers_choice_check;       -- 글자 정답 허용
+
+create or replace function verify_pin(p_pin text)
+returns text language plpgsql security definer set search_path = public as $$
+declare s text; a text;
+begin
+  select value into s from private_settings where key = 'super_pin';
+  select value into a from private_settings where key = 'admin_pin';
+  if s is null and a is null then return 'setup';
+  elsif p_pin is not null and p_pin = s then return 'super';
+  elsif p_pin is not null and p_pin = a then return 'admin';
+  else return null; end if;
+end $$;
+
+create or replace function set_pins(p_current_super text, p_new_admin text, p_new_super text default null)
+returns text language plpgsql security definer set search_path = public as $$
+declare s text;
+begin
+  select value into s from private_settings where key = 'super_pin';
+  if s is not null and (p_current_super is null or p_current_super <> s) then raise exception '슈퍼관리자 PIN이 틀렸습니다'; end if;
+  if p_new_admin is not null and length(trim(p_new_admin)) >= 4 then
+    insert into private_settings(key, value) values ('admin_pin', trim(p_new_admin)) on conflict (key) do update set value = excluded.value;
+  end if;
+  if p_new_super is not null and length(trim(p_new_super)) >= 4 then
+    insert into private_settings(key, value) values ('super_pin', trim(p_new_super)) on conflict (key) do update set value = excluded.value;
+  elsif s is null then
+    raise exception '최초 설정 시 슈퍼관리자 PIN(4자리 이상)이 필요합니다';
+  end if;
+  return 'ok';
+end $$;
+
+create or replace function require_host(p_pin text) returns void language plpgsql security definer set search_path = public as $$
+declare r text := verify_pin(p_pin);
+begin
+  if r is null then raise exception 'PIN이 틀렸습니다'; end if;
+  if r = 'setup' then raise exception 'PIN이 아직 설정되지 않았습니다. 슈퍼관리자 페이지(admin/)에서 먼저 설정하세요'; end if;
+end $$;
+
+create or replace function start_round(p_word text, p_pin text default null, p_player text default null)
+returns bigint language plpgsql security definer set search_path = public as $$
+declare w text := trim(p_word); r bigint;
+begin
+  perform require_host(p_pin);
+  if w is null or w = '' then
+    select word into w from words where candidate order by random() limit 1;
+  elsif not exists (select 1 from words where word = w) then
+    raise exception '사전에 없는 단어라 정답으로 쓸 수 없습니다: %', w;
+  end if;
+  update rounds set finished_at = now(), gave_up = true where finished_at is null;
+  insert into rounds(answer, created_by) values (w, p_player) returning id into r;
+  perform round_benchmarks(r);
+  return r;
+end $$;
+
+create or replace function round_status()
+returns json language sql security definer set search_path = public as $$
+  select json_build_object('id', r.id, 'created_at', r.created_at,
+     'guesses', (select count(*) from guesses g where g.round_id = r.id),
+     'players', (select count(distinct player) from guesses g where g.round_id = r.id),
+     'best', (select json_agg(json_build_object('player', player, 'word', word, 'similarity', similarity, 'rank', rank) order by similarity desc)
+              from (select * from guesses g where g.round_id = r.id order by similarity desc limit 10) b))
+  from rounds r where r.finished_at is null order by r.id desc limit 1;
+$$;
+
+create or replace function ox_create_room(p_pin text) returns text language plpgsql security definer set search_path = public as $$
+declare c text; i int := 0;
+begin
+  perform require_host(p_pin);
+  perform ox_cleanup();
+  loop
+    c := lpad((floor(random()*9000)+1000)::int::text, 4, '0');
+    exit when not exists (select 1 from ox_rooms where code = c);
+    i := i + 1; if i > 20 then raise exception '방 코드 생성 실패'; end if;
+  end loop;
+  insert into ox_rooms(code) values (c);
+  return c;
+end $$;
+
+create or replace function ox_set_room(p_pin text, p_code text, p_phase text, p_q_index int, p_question text, p_answer text, p_qtype text default 'ox')
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  perform require_host(p_pin);
+  update ox_rooms set phase = p_phase, q_index = p_q_index, question = p_question, answer = p_answer, qtype = coalesce(p_qtype,'ox'), updated_at = now() where code = p_code;
+end $$;
+
+create or replace function ox_set_alive(p_pin text, p_code text, p_ids bigint[], p_alive boolean)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  perform require_host(p_pin);
+  if p_ids is null then update ox_players set alive = p_alive where room_code = p_code;
+  else update ox_players set alive = p_alive where room_code = p_code and id = any(p_ids); end if;
+end $$;
+
+create or replace function ox_join(p_code text, p_name text, p_pid bigint default null)
+returns json language plpgsql security definer set search_path = public as $$
+declare p ox_players; n text := left(trim(p_name), 12);
+begin
+  if not exists (select 1 from ox_rooms where code = p_code) then raise exception '그 코드의 방이 없어요'; end if;
+  if n = '' then raise exception '이름을 입력하세요'; end if;
+  if p_pid is not null then
+    update ox_players set name = n where id = p_pid and room_code = p_code returning * into p;
+    if found then return row_to_json(p); end if;
+  end if;
+  insert into ox_players(room_code, name) values (p_code, n) returning * into p;
+  return row_to_json(p);
+end $$;
+
+grant execute on function verify_pin(text), set_pins(text,text,text), start_round(text,text,text), round_status(),
+  ox_create_room(text), ox_set_room(text,text,text,int,text,text,text), ox_set_alive(text,text,bigint[],boolean), ox_join(text,text,bigint)
+  to anon, authenticated;
+
+do $$ begin
+  if not exists (select 1 from pg_policies where tablename='ox_rooms' and policyname='ox_rooms_read') then
+    create policy ox_rooms_read on ox_rooms for select to anon, authenticated using (true); end if;
+  if not exists (select 1 from pg_policies where tablename='ox_players' and policyname='ox_players_read') then
+    create policy ox_players_read on ox_players for select to anon, authenticated using (true); end if;
+  if not exists (select 1 from pg_policies where tablename='ox_answers' and policyname='ox_answers_read') then
+    create policy ox_answers_read on ox_answers for select to anon, authenticated using (true); end if;
+  if not exists (select 1 from pg_policies where tablename='ox_answers' and policyname='ox_answers_insert') then
+    create policy ox_answers_insert on ox_answers for insert to anon, authenticated with check (true); end if;
+end $$;
+alter policy ox_rooms_all on ox_rooms using (false) with check (false);
+alter policy ox_players_all on ox_players using (false) with check (false);
+alter policy ox_answers_all on ox_answers using (false) with check (false);
