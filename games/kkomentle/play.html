@@ -130,7 +130,7 @@ async function loadRound() {
     $("done").hidden = true; $("next").hidden = true;
     $("guess").disabled = $("submit").disabled = false;
     const { data: rows } = await sb.from("guesses").select("*").eq("round_id", roundId).order("created_at");
-    guesses = rows || [];
+    { const seen = new Set(); guesses = (rows || []).filter(g => !seen.has(g.word) && seen.add(g.word)); }
     subscribe();
     const { data: b } = await sb.rpc("round_benchmarks", { p_round: roundId });
     bench = b;
