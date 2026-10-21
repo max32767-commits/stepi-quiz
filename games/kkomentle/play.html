@@ -154,7 +154,7 @@ function subscribe() {
   if (channel) sb.removeChannel(channel);
   channel = sb.channel("guesses-" + roundId)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "guesses", filter: "round_id=eq." + roundId },
-      p => { if (!guesses.some(g => g.id === p.new.id)) { guesses.push(p.new); render(); if (p.new.rank === 0) refreshRound(); } })
+      p => { const t = guesses.findIndex(g => g.word === p.new.word); if (t >= 0) { if (String(guesses[t].id).startsWith('tmp')) { if (latestId === guesses[t].id) latestId = p.new.id; guesses[t] = p.new; } } else guesses.push(p.new); render(); if (p.new.rank === 0) refreshRound(); })
     .subscribe();
   clearInterval(pollTimer);
   pollTimer = setInterval(() => { if (!roundRow?.finished_at) refreshRound(); }, 5000);
@@ -176,18 +176,23 @@ $("guess-form").onsubmit = async e => {
   e.preventDefault();
   const word = $("guess").value.trim();
   if (!word) return;
-  const dup = guesses.find(g => g.player === me && g.word === word);
-  if (dup) { latestId = dup.id; render(); return msg(`이미 추측한 단어입니다: ${word}`); }
+  const dup = guesses.find(g => g.word === word);
+  if (dup) { latestId = dup.id; render(); $("guess").value = ""; return msg(dup.player === me ? `이미 추측한 단어입니다: ${word}` : `이미 ${dup.player} 님이 낸 단어예요: ${word} (${fmt(dup.similarity)})`); }
   $("submit").disabled = true; msg("");
   const { data, error } = await sb.rpc("make_guess", { p_round: roundId, p_player: me, p_word: word });
   $("submit").disabled = false;
   if (error) return msg(error.message.replace(/^.*?: /, ""));
   $("guess").value = ""; $("guess").focus();
-  if (!guesses.some(g => g.player === me && g.word === data.word)) {
+  if (data.duplicate) {   // 다른 사람이 먼저 낸 단어 — 표에 다시 쌓지 않고 그 줄만 표시
+    const row = guesses.find(g => g.id === data.id || g.word === data.word);
+    if (row) latestId = row.id; else { guesses.push({ id: data.id, round_id: roundId, player: data.by, word: data.word, similarity: data.similarity, rank: data.rank, created_at: new Date().toISOString() }); latestId = data.id; }
+    render(); return msg(`이미 ${data.by} 님이 낸 단어예요: ${data.word} (${fmt(data.similarity)})`);
+  }
+  if (!guesses.some(g => g.word === data.word)) {
     guesses.push({ id: "tmp" + Date.now(), round_id: roundId, player: me, word: data.word,
                    similarity: data.similarity, rank: data.rank, created_at: new Date().toISOString() });
   }
-  latestId = guesses.find(g => g.player === me && g.word === data.word).id;
+  latestId = guesses.find(g => g.word === data.word).id;
   render();
   if (data.correct) await refreshRound();
 };
