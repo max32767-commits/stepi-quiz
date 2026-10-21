@@ -113,7 +113,7 @@
       <label>강수 <select id="size"><option value="auto">자동 (후보 수에 맞춤)</option><option value="4">4강</option><option value="8">8강</option><option value="16">16강</option><option value="32">32강</option></select></label>
       <label><input type="checkbox" id="shuffle" checked> 대진 무작위 섞기</label>
       <label><input type="checkbox" id="confirm-click" checked> 클릭 후 1초 연출 (오클릭 방지)</label>
-      <label id="vote-opts" class="hidden">투표 시간 <select id="vote-sec"><option value="0">진행자가 마감</option><option value="15">15초</option><option value="20" selected>20초</option><option value="30">30초</option><option value="45">45초</option></select> <span class="muted">· 동점이면 진행자가 클릭으로 결정</span></label>
+      <label id="vote-opts" class="hidden">경기당 투표 시간 <input type="number" id="vote-sec" value="20" min="0" max="300" style="width:70px;padding:6px;font:inherit;border:1px solid var(--line);border-radius:8px;text-align:center"> 초 <span class="muted">(0이면 시간 제한 없이 진행자가 마감 · 동점이면 진행자가 클릭으로 결정)</span></label>
     </div>
     <button class="btn orange" id="start" style="width:100%;margin-top:12px;font-size:20px;padding:16px">월드컵 시작</button>
     <p class="muted" id="setup-msg" style="margin:8px 0 0"></p>
@@ -275,7 +275,7 @@ async function openVote(a, b, round) {
   const { error } = await sb.rpc('wc_set_match', { p_pin: PIN, p_code: code, p_match_no: matchNo, p_round: `${title} · ${round}`, p_a_name: a.name, p_a_img: ai, p_b_name: b.name, p_b_img: bi });
   if (error) { alert(error.message.replace(/^.*?: /, '')); if (/PIN/.test(error.message)) { STEPI_PIN.clear(); PIN = await STEPI_PIN.require(); } return; }
   voteOpen = true; $('close-vote').classList.remove('hidden');
-  const sec = +$('vote-sec').value; clearInterval(voteTimer); voteLeft = sec; $('vote-timer').textContent = sec ? sec + '초' : '진행자 마감';
+  const sec = Math.min(300, Math.max(0, +$('vote-sec').value || 0)); clearInterval(voteTimer); voteLeft = sec; $('vote-timer').textContent = sec ? sec + '초' : '진행자 마감';
   if (sec) voteTimer = setInterval(() => { voteLeft--; $('vote-timer').textContent = voteLeft + '초'; if (voteLeft <= 0) { clearInterval(voteTimer); closeVote(); } }, 1000);
 }
 async function loadTally() {
