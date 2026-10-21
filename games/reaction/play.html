@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<title>반응속도 대결 — 참가</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="../ox/ox.css">
+<style>
+  html,body{overscroll-behavior:none}
+  #pad{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#fff;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;padding:24px;z-index:50}
+  #pad.on{display:flex}
+  #pad.wait{background:#1b2230}#pad.go{background:#16a34a}#pad.stop{background:#dc2626}
+  #pad.ok{background:#373282}#pad.bad{background:#7f1d1d}#pad.safe{background:#0f766e}
+  #pad .big{font-size:clamp(48px,18vw,120px);font-weight:900;line-height:1;letter-spacing:-.02em}
+  #pad .sub{font-size:20px;font-weight:700;opacity:.9;margin-top:14px}
+  #pad .ms{font-size:clamp(56px,20vw,140px);font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
+  #pad .pts{font-size:28px;font-weight:900;margin-top:10px;color:#ffd166}
+  #pad .score{position:absolute;top:18px;right:18px;background:rgba(255,255,255,.18);padding:6px 14px;border-radius:999px;font-weight:800}
+  #pad .rno{position:absolute;top:18px;left:18px;background:rgba(255,255,255,.18);padding:6px 14px;border-radius:999px;font-weight:800}
+  .sync{font-size:13px;color:var(--muted);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="play">
+  <div class="topbar" style="border-radius:14px;border:1px solid var(--line)">
+    <a class="brand" href="../../"><img src="../../assets/logo-word.png" alt="STEPI" style="height:26px"><img src="../../assets/logo-dots.png" alt="" style="height:20px"></a>
+    <span class="pill">⚡ 반응속도 대결</span>
+  </div>
+
+  <section id="join" class="card">
+    <h2>참가하기</h2>
+    <p class="muted">큰 화면의 4자리 코드와 이름을 넣으세요.</p>
+    <input class="code" id="code" inputmode="numeric" maxlength="4" placeholder="0000">
+    <input class="name" id="name" maxlength="12" placeholder="이름 (예: 홍길동)" autocomplete="off" style="margin:10px 0 14px">
+    <button class="btn orange" id="go">입장</button>
+    <p class="muted" id="join-msg" style="margin:10px 0 0"></p>
+  </section>
+
+  <section id="wait" class="card hidden" style="text-align:center;padding:40px 20px">
+    <div style="font-size:52px">⚡</div>
+    <h2 id="wait-title">입장 완료!</h2>
+    <p class="muted" id="wait-sub">진행자가 시작하면 화면이 바뀝니다.<br><b style="color:#16a34a">초록</b>이면 빨리 누르고, <b style="color:#dc2626">빨강</b>이면 참으세요.</p>
+    <div class="sync" id="sync"></div>
+  </section>
+</div>
+
+<div id="pad" class="wait">
+  <div class="rno" id="rno"></div>
+  <div class="score" id="score"></div>
+  <div class="big" id="p-big">준비…</div>
+  <div class="ms hidden" id="p-ms"></div>
+  <div class="sub" id="p-sub">화면이 바뀌길 기다리세요</div>
+  <div class="pts hidden" id="p-pts"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../../shared/supabase-config.js"></script>
+<script src="../../shared/supabase-client.js"></script>
+<script src="../../shared/clock.js"></script>
+<script>
+if (!window.sb) throw new Error('Supabase 설정 없음');
+const $ = id => document.getElementById(id);
+const qs = new URLSearchParams(location.search);
+let code = (qs.get('room') || '').replace(/\D/g, '').slice(0, 4), me = null, room = null, myScore = 0;
+let curRound = 0, state = 'idle', sigTimer = null, sigAt = 0, sigType = null, pressedRound = 0;
+$('code').value = code;
+try { $('name').value = localStorage.getItem('stepi:name') || ''; } catch (e) {}
+if (code) $('name').focus();
+
+$('go').onclick = async () => {
+  code = $('code').value.replace(/\D/g, ''); const name = $('name').value.trim();
+  if (code.length !== 4) return $('join-msg').textContent = '코드 4자리를 입력하세요.';
+  if (!name) return $('join-msg').textContent = '이름을 입력하세요.';
+  $('go').disabled = true; $('join-msg').textContent = '입장 중…';
+  let pid = null; try { pid = +localStorage.getItem('rx:' + code) || null; } catch (e) {}
+  const { data, error } = await sb.rpc('rx_join', { p_code: code, p_name: name, p_pid: pid });
+  if (error) { $('go').disabled = false; return $('join-msg').textContent = error.message.replace(/^.*?: /, ''); }
+  me = data; myScore = me.score || 0;
+  try { localStorage.setItem('rx:' + code, me.id); localStorage.setItem('stepi:name', name); } catch (e) {}
+  show('wait'); $('sync').textContent = '서버 시계 맞추는 중…';
+  await STEPI_CLOCK.sync(8);
+  $('sync').textContent = `시계 동기화 완료 (지연 ${STEPI_CLOCK.rtt ?? '?'}ms)`;
+  setInterval(() => STEPI_CLOCK.sync(4), 60000);
+  subscribe();
+};
+$('name').onkeydown = e => { if (e.key === 'Enter') $('go').click(); };
+
+function subscribe() {
+  sb.channel('rx-play-' + code + '-' + me.id)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rx_rooms', filter: 'code=eq.' + code }, p => onRoom(p.new))
+    .subscribe();
+  const poll = async () => { const { data: r } = await sb.from('rx_rooms').select('*').eq('code', code).maybeSingle(); if (r) onRoom(r); };
+  poll(); setInterval(poll, 2500);
+}
+function show(id) { ['join', 'wait'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
+function pad(cls, big, sub, ms, pts) {
+  const p = $('pad'); p.className = cls + ' on';
+  $('p-big').textContent = big; $('p-sub').textContent = sub;
+  $('p-ms').classList.toggle('hidden', ms == null); $('p-ms').textContent = ms == null ? '' : ms + 'ms';
+  $('p-pts').classList.toggle('hidden', pts == null); $('p-pts').textContent = pts == null ? '' : (pts > 0 ? '+' : '') + pts + '점';
+  $('score').textContent = '내 점수 ' + myScore; $('rno').textContent = room ? `라운드 ${room.round_no}/${room.total_rounds}` : '';
+}
+
+function onRoom(r) {
+  room = r;
+  if (r.phase === 'lobby') { curRound = 0; state = 'idle'; myScore = 0; $('pad').className = 'wait'; show('wait'); $('wait-title').textContent = '입장 완료!'; return; }
+  if (r.phase === 'armed' && r.round_no !== curRound) {
+    curRound = r.round_no; state = 'armed'; sigType = r.signal_type; sigAt = new Date(r.signal_at).getTime();
+    pad('wait', '준비…', '화면이 바뀌길 기다리세요');
+    clearTimeout(sigTimer);
+    const d = sigAt - STEPI_CLOCK.now();
+    if (d > -2500) sigTimer = setTimeout(fire, Math.max(0, d)); else state = 'late';
+    return;
+  }
+  if ((r.phase === 'result' || r.phase === 'done') && r.round_no === curRound && state !== 'shown') showResult(r.phase === 'done');
+}
+let fireAt = 0;
+function fire() {
+  if (state !== 'armed') return;
+  state = 'live'; fireAt = performance.now();
+  if (sigType === 'go') pad('go', '눌러!', ''); else pad('stop', 'STOP', '누르면 안 돼요!');
+  if (navigator.vibrate) navigator.vibrate(40);
+}
+async function press() {
+  if (!room || room.phase !== 'armed' || pressedRound === curRound) return;
+  if (state !== 'armed' && state !== 'live') return;
+  pressedRound = curRound;
+  let ms;
+  if (state === 'armed') ms = -1;                              // 신호 전 → 부정출발
+  else ms = Math.round(performance.now() - fireAt);
+  if (navigator.vibrate) navigator.vibrate(20);
+  if (ms >= 0 && sigType === 'go') pad('ok', '', '기록 전송 중…', ms); else if (ms < 0) pad('bad', '부정출발!', '신호 전에 눌렀어요'); else pad('bad', '낚였다!', 'STOP인데 눌렀어요 😅');
+  const { data, error } = await sb.rpc('rx_press', { p_code: code, p_round: curRound, p_pid: me.id, p_reaction_ms: ms });
+  if (error) { $('p-sub').textContent = error.message.replace(/^.*?: /, ''); return; }
+  if (data.points) { myScore += data.points; $('score').textContent = '내 점수 ' + myScore; }
+  if (data.status === 'ok') $('p-sub').textContent = '순위는 라운드가 끝나면 나와요';
+  else if (data.status === 'early') pad('bad', '부정출발!', '신호 전에 눌렀어요', null, data.points);
+  else if (data.status === 'fooled') pad('bad', '낚였다!', 'STOP인데 눌렀어요 😅', null, data.points);
+}
+$('pad').addEventListener('pointerdown', e => { e.preventDefault(); press(); }, { passive: false });
+document.addEventListener('keydown', e => { if (e.code === 'Space' || e.key === 'Enter') press(); });
+
+async function showResult(done) {
+  state = 'shown'; clearTimeout(sigTimer);
+  const { data } = await sb.rpc('rx_round_results', { p_code: code, p_round: curRound });
+  const rows = (data && data.rows) || [], mine = rows.find(x => x.player_id === me.id);
+  if (mine) myScore = mine.score;
+  const okRows = rows.filter(x => x.status === 'ok'), rank = mine ? okRows.findIndex(x => x.player_id === me.id) + 1 : 0;
+  if (!mine) pad('wait', '결과', '큰 화면을 보세요');
+  else if (mine.status === 'ok') pad(rank === 1 ? 'ok' : 'ok', rank === 1 ? '🥇 1등!' : rank + '등', `${okRows.length}명 중 ${rank}등`, mine.reaction_ms, mine.points);
+  else if (mine.status === 'safe') pad('safe', '잘 참았다!', 'STOP 신호를 참았어요', null, mine.points);
+  else if (mine.status === 'miss') pad('bad', '놓쳤다…', '신호가 왔는데 안 눌렀어요', null, 0);
+  else if (mine.status === 'early') pad('bad', '부정출발', '신호 전에 눌렀어요', null, mine.points);
+  else pad('bad', '낚였다!', 'STOP인데 눌렀어요', null, mine.points);
+  if (done) setTimeout(() => { const all = $('p-sub'); all.textContent = '게임 끝! 최종 순위는 큰 화면에서 🏆'; }, 2500);
+}
+</script>
+</body>
+</html>
