@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<title>이상형 월드컵 — 투표</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="../ox/ox.css">
+<style>
+  .pair{display:grid;grid-template-rows:1fr auto 1fr;gap:10px;flex:1;min-height:60vh}
+  .cand{position:relative;border-radius:22px;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;background:#e8f1ff;border:3px solid transparent;cursor:pointer;min-height:26vh}
+  .cand.b{background:#fde8f1}
+  .cand img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .cand .label{position:relative;z-index:1;margin:12px;padding:8px 16px;border-radius:14px;background:rgba(255,255,255,.92);font-size:22px;font-weight:900;color:var(--navy);text-align:center;max-width:92%}
+  .cand.noimg{align-items:center}.cand.noimg .label{background:none;font-size:30px}
+  .cand.picked{border-color:var(--orange);box-shadow:0 0 0 4px rgba(237,145,26,.25)}
+  .cand.win{border-color:var(--o)}.cand.lose{opacity:.3;filter:grayscale(1)}
+  .cand .pct{position:absolute;top:10px;right:12px;z-index:2;background:rgba(55,50,130,.9);color:#fff;font-weight:900;padding:4px 12px;border-radius:999px}
+  .vs{text-align:center;font-weight:900;color:var(--orange);font-size:26px}
+  .round{text-align:center;font-weight:800;color:var(--navy)}
+  .msg{text-align:center;font-weight:700;min-height:1.5em}
+</style>
+</head>
+<body>
+<div class="play">
+  <div class="topbar" style="border-radius:14px;border:1px solid var(--line)">
+    <a class="brand" href="../../"><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>STEPI</a>
+    <span class="pill">🏆 이상형 월드컵</span>
+  </div>
+
+  <section id="join" class="card">
+    <h2>투표 참여</h2>
+    <p class="muted">큰 화면에 보이는 4자리 코드를 넣으세요.</p>
+    <input class="code" id="code" inputmode="numeric" maxlength="4" placeholder="0000" style="margin-bottom:14px">
+    <button class="btn orange" id="go">입장</button>
+    <p class="muted" id="join-msg" style="margin:10px 0 0"></p>
+  </section>
+
+  <section id="wait" class="card hidden" style="text-align:center;padding:40px 20px">
+    <div style="font-size:52px">🏆</div>
+    <h2 id="wait-title">잠시만요</h2>
+    <p class="muted" id="wait-sub">진행자가 경기를 올리면 여기서 투표할 수 있어요.</p>
+  </section>
+
+  <section id="vote" class="hidden" style="display:flex;flex-direction:column;gap:10px;flex:1">
+    <div class="round" id="round"></div>
+    <div class="pair">
+      <div class="cand" id="cand-a"></div>
+      <div class="vs">VS</div>
+      <div class="cand b" id="cand-b"></div>
+    </div>
+    <div class="msg" id="msg">마음에 드는 쪽을 눌러 투표하세요</div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../../shared/supabase-config.js"></script>
+<script src="../../shared/supabase-client.js"></script>
+<script>
+if (!window.sb) throw new Error('Supabase 설정 없음');
+const $ = id => document.getElementById(id);
+const esc = s => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const qs = new URLSearchParams(location.search);
+let code = (qs.get('room') || '').replace(/\D/g, '').slice(0, 4), room = null, mine = null, lastMatch = -1, voter = null, tallyT = null;
+try { voter = localStorage.getItem('wc:voter'); if (!voter) { voter = 'v' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('wc:voter', voter); } } catch (e) { voter = 'v' + Math.random().toString(36).slice(2); }
+$('code').value = code;
+if (code) setTimeout(() => $('go').click(), 50);
+
+$('go').onclick = async () => {
+  code = $('code').value.replace(/\D/g, '');
+  if (code.length !== 4) return $('join-msg').textContent = '코드 4자리를 입력하세요.';
+  $('go').disabled = true; $('join-msg').textContent = '입장 중…';
+  const { data: r } = await sb.from('wc_rooms').select('*').eq('code', code).maybeSingle();
+  if (!r) { $('go').disabled = false; return $('join-msg').textContent = '그 코드의 방이 없어요.'; }
+  room = r; subscribe(); render();
+};
+function subscribe() {
+  sb.channel('wc-play-' + code + '-' + voter)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wc_rooms', filter: 'code=eq.' + code }, p => { room = p.new; render(); })
+    .subscribe();
+  setInterval(async () => { const { data: r } = await sb.from('wc_rooms').select('*').eq('code', code).maybeSingle(); if (r && r.updated_at !== room?.updated_at) { room = r; render(); } }, 3000);
+}
+function show(id) { ['join', 'wait', 'vote'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
+function card(k, name, img) {
+  const el = $('cand-' + k); el.classList.toggle('noimg', !img);
+  el.innerHTML = (img ? `<img src="${img}" alt="">` : '') + `<div class="label">${esc(name)}</div><div class="pct hidden" id="pct-${k}"></div>`;
+}
+async function render() {
+  if (!room) return;
+  if (room.phase === 'wait') { show('wait'); $('wait-title').textContent = room.title || '이상형 월드컵'; $('wait-sub').textContent = '진행자가 경기를 올리면 여기서 투표할 수 있어요.'; return; }
+  if (room.phase === 'done') { show('wait'); $('wait-title').textContent = '🏆 우승: ' + (room.winner || ''); $('wait-sub').textContent = '월드컵이 끝났어요. 큰 화면을 보세요!'; return; }
+  show('vote');
+  if (room.match_no !== lastMatch) { lastMatch = room.match_no; mine = null; card('a', room.a_name, room.a_img); card('b', room.b_name, room.b_img); ['cand-a', 'cand-b'].forEach(i => $(i).classList.remove('picked', 'win', 'lose')); }
+  $('round').textContent = room.round_label || '';
+  if (room.phase === 'vote') {
+    $('msg').textContent = mine ? '투표했어요! 바꾸려면 다른 쪽을 누르세요' : '마음에 드는 쪽을 눌러 투표하세요';
+    $('msg').className = 'msg';
+  } else {   // closed
+    const { data: t } = await sb.rpc('wc_tally', { p_code: code, p_match_no: room.match_no });
+    const tot = t ? t.a + t.b : 0;
+    ['a', 'b'].forEach(k => { const p = $('pct-' + k); if (p && t) { p.textContent = tot ? Math.round(t[k] / tot * 100) + '%' : '0%'; p.classList.remove('hidden'); } });
+    if (t && t.a !== t.b) { const w = t.a > t.b ? 'a' : 'b'; $('cand-' + w).classList.add('win'); $('cand-' + (w === 'a' ? 'b' : 'a')).classList.add('lose'); }
+    $('msg').textContent = room.winner ? `${room.winner} 승리!` : '투표 마감 — 결과는 큰 화면에서';
+    $('msg').className = 'msg';
+  }
+}
+async function vote(k) {
+  if (!room || room.phase !== 'vote') return;
+  const prev = mine; mine = k;
+  $('cand-a').classList.toggle('picked', k === 'a'); $('cand-b').classList.toggle('picked', k === 'b');
+  if (navigator.vibrate) navigator.vibrate(30);
+  const { error } = await sb.rpc('wc_vote', { p_code: code, p_match_no: room.match_no, p_voter: voter, p_choice: k });
+  if (error) { mine = prev; $('msg').textContent = error.message.replace(/^.*?: /, ''); $('msg').className = 'msg'; return; }
+  $('msg').textContent = '투표했어요! 바꾸려면 다른 쪽을 누르세요';
+}
+$('cand-a').onclick = () => vote('a'); $('cand-b').onclick = () => vote('b');
+</script>
+</body>
+</html>

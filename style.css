@@ -1,7 +1,7 @@
 :root{
   --navy:#373282; --navy-d:#2a2666; --orange:#ED911A; --orange-d:#d97d0b;
   --ink:#1b2230; --muted:#6b7280; --line:#e6e8f0; --bg:#fff; --soft:#f6f7fb;
-  --display:"Black Han Sans","Jua",Pretendard,sans-serif; --hand:"Gaegu","Jua",cursive;
+  --display:"Jua","Do Hyeon",Pretendard,sans-serif; --hand:"Gaegu","Jua",cursive;
   --body:Pretendard,"Noto Sans KR",-apple-system,"Malgun Gothic",sans-serif;
 }
 *{box-sizing:border-box}
@@ -18,7 +18,7 @@ h1,h2,h3,p{margin:0}
 .top{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 .top-in{display:flex;align-items:center;gap:24px;height:68px}
 .logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex:none}
-.logo-word{font-family:var(--display);font-size:30px;color:var(--navy);letter-spacing:-.01em;line-height:1}
+.logo-word{font-family:var(--display);font-weight:400;font-size:30px;color:var(--navy);letter-spacing:.02em;line-height:1}
 .logo-word.light{color:#fff}
 .dots{display:grid;grid-template-columns:repeat(3,6px);gap:3px}
 .dots i{width:6px;height:6px;border-radius:50%;background:var(--navy)}
@@ -47,7 +47,7 @@ h1,h2,h3,p{margin:0}
 .hero-in{display:grid;grid-template-columns:1fr 1.15fr;gap:20px;align-items:center;min-height:460px;padding-block:28px}
 .tag{font-family:var(--hand);font-size:24px;color:var(--navy);display:flex;align-items:center;gap:6px}
 .tag .spark{color:var(--orange);font-size:16px}
-.hero h1{word-break:keep-all;font-family:var(--display);font-size:clamp(44px,6vw,74px);line-height:1.1;color:var(--navy);margin:8px 0 18px;letter-spacing:-.01em}
+.hero h1{word-break:keep-all;font-family:var(--display);font-weight:400;font-size:clamp(42px,5.6vw,70px);line-height:1.15;color:var(--navy);margin:8px 0 18px;letter-spacing:.01em}
 .hero h1 em{font-style:normal;color:var(--orange)}
 .hero h1 .dice{font-size:.6em;display:inline-block;animation:wobble 2.4s ease-in-out infinite}
 @keyframes wobble{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(10deg) translateY(-4px)}}

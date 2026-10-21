@@ -59,6 +59,16 @@
   .confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden}
   .confetti i{position:absolute;top:-10px;width:10px;height:14px;animation:fall 3s linear forwards}
   @keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+  .votebar{position:absolute;left:0;right:0;bottom:0;z-index:2;height:14px;background:rgba(0,0,0,.15)}
+  .votebar b{display:block;height:100%;background:var(--orange);width:0;transition:width .3s}
+  .votecnt{position:absolute;top:14px;left:14px;z-index:2;background:rgba(55,50,130,.9);color:#fff;font-weight:900;font-size:clamp(22px,3vw,40px);padding:6px 18px;border-radius:999px;font-variant-numeric:tabular-nums}
+  .side.b .votecnt{left:auto;right:14px}
+  .qrpanel{display:flex;align-items:center;gap:16px;justify-content:center;background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px 16px;margin-bottom:12px;flex-wrap:wrap}
+  .qrpanel .code{font-size:34px;font-weight:900;color:var(--navy);letter-spacing:.1em}
+  .qrpanel .url{font-size:12px;color:var(--muted);word-break:break-all;max-width:420px}
+  .modes{display:flex;gap:8px;margin:10px 0}
+  .modes label{flex:1;border:2px solid var(--line);border-radius:12px;padding:10px;cursor:pointer;font-weight:700;text-align:center}
+  .modes input{display:none} .modes input:checked+span{color:var(--navy)} .modes label:has(input:checked){border-color:var(--navy);background:#eef0fa}
   @media(max-width:700px){.arena{grid-template-columns:1fr;min-height:0}.side{min-height:36vh}.vs{font-size:28px}}
 </style>
 </head>
@@ -94,11 +104,16 @@
       <li>큰 화면에 두 후보가 나오면 참가자들이 <b>소리로</b> 고르고, 진행자가 이긴 쪽을 클릭합니다.</li>
       <li>결승까지 올라가 최종 1위를 가립니다.</li>
     </ol>
+    <div class="modes">
+      <label><input type="radio" name="mode" value="host" checked><span>🖥️ 진행자가 클릭</span><div class="muted" style="font-size:12px;font-weight:400">참가자는 소리로, 진행자가 이긴 쪽 클릭</div></label>
+      <label><input type="radio" name="mode" value="vote"><span>📱 QR 투표</span><div class="muted" style="font-size:12px;font-weight:400">참가자가 폰으로 투표, 많은 쪽 승리 (PIN)</div></label>
+    </div>
     <div class="opts">
       <label>대회 제목 <input type="text" id="title" placeholder="예: STEPI 점심 메뉴 월드컵" style="width:100%"></label>
       <label>강수 <select id="size"><option value="auto">자동 (후보 수에 맞춤)</option><option value="4">4강</option><option value="8">8강</option><option value="16">16강</option><option value="32">32강</option></select></label>
       <label><input type="checkbox" id="shuffle" checked> 대진 무작위 섞기</label>
       <label><input type="checkbox" id="confirm-click" checked> 클릭 후 1초 연출 (오클릭 방지)</label>
+      <label id="vote-opts" class="hidden">투표 시간 <select id="vote-sec"><option value="0">진행자가 마감</option><option value="15">15초</option><option value="20" selected>20초</option><option value="30">30초</option><option value="45">45초</option></select> <span class="muted">· 동점이면 진행자가 클릭으로 결정</span></label>
     </div>
     <button class="btn orange" id="start" style="width:100%;margin-top:12px;font-size:20px;padding:16px">월드컵 시작</button>
     <p class="muted" id="setup-msg" style="margin:8px 0 0"></p>
@@ -107,13 +122,15 @@
 
 <!-- 대결 -->
 <section id="arena-sec" class="hidden">
+  <div class="qrpanel hidden" id="qrpanel"><div id="qr"></div><div><div class="muted">휴대폰으로 QR을 찍고 투표하세요</div><div class="code" id="room-code"></div><div class="url" id="room-url"></div></div><div style="text-align:center"><div class="muted">투표</div><div class="code" id="vote-total">0</div><div class="muted" id="vote-timer"></div></div></div>
   <div class="round"><div class="r" id="round-name">16강</div><div class="m" id="round-match">1 / 8 경기</div><div class="prog"><b id="prog"></b></div></div>
   <div class="arena">
-    <div class="side" id="side-a"><div class="label" id="label-a"></div></div>
+    <div class="side" id="side-a"></div>
     <div class="vs">VS</div>
-    <div class="side b" id="side-b"><div class="label" id="label-b"></div></div>
+    <div class="side b" id="side-b"></div>
   </div>
   <div class="controls">
+    <button class="btn orange hidden" id="close-vote">투표 마감 → 승자 결정</button>
     <button class="btn ghost" id="undo">↩ 이전 경기로</button>
     <button class="btn ghost" id="quit">처음으로</button>
   </div>
@@ -134,11 +151,19 @@
 </div>
 <div class="confetti" id="confetti"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../../shared/supabase-config.js"></script>
+<script src="../../shared/supabase-client.js"></script>
+<script src="../../shared/pin.js"></script>
 <script>
+document.querySelectorAll('.stepi-nodb').forEach(e => e.remove());   // 진행자 모드는 DB 없이도 동작
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let items = [];           // {id, name, src|null}
 let bracket = [], roundIdx = 0, matchIdx = 0, history = [], eliminatedAt = {}, title = '';
+let MODE = 'host', PIN = null, code = '', matchNo = 0, tally = { a: 0, b: 0 }, channel = null, pollTimer = null, voteTimer = null, voteLeft = 0;
+document.querySelectorAll('input[name=mode]').forEach(r => r.onchange = () => { $('vote-opts').classList.toggle('hidden', r.value !== 'vote' || !r.checked); if (r.value === 'vote' && r.checked && !window.sb) { alert('QR 투표는 Supabase 설정이 필요해요. 진행자 모드로 진행합니다.'); document.querySelector('input[name=mode][value=host]').checked = true; $('vote-opts').classList.add('hidden'); } });
 
 // ---- 후보 입력 ----
 function addFiles(files) {
@@ -173,9 +198,18 @@ $('items').addEventListener('click', e => { if (e.target.classList.contains('del
 $('items').addEventListener('input', e => { if (e.target.classList.contains('cap')) { const it = items.find(i => i.id === +e.target.closest('.item').dataset.id); if (it) it.name = e.target.textContent.trim(); } });
 
 // ---- 대진 ----
-$('start').onclick = () => {
+$('start').onclick = async () => {
   if (items.length < 2) return $('setup-msg').textContent = '후보를 2개 이상 넣어 주세요.';
   title = $('title').value.trim() || '이상형 월드컵';
+  MODE = document.querySelector('input[name=mode]:checked').value;
+  if (MODE === 'vote') {
+    if (!PIN) PIN = await STEPI_PIN.require();
+    $('setup-msg').textContent = '방을 만드는 중…';
+    const { data, error } = await sb.rpc('wc_create_room', { p_pin: PIN, p_title: title });
+    if (error) return $('setup-msg').textContent = error.message.replace(/^.*?: /, '');
+    code = data; matchNo = 0; setupRoom();
+  }
+  $('qrpanel').classList.toggle('hidden', MODE !== 'vote');
   let pool = items.slice(); if ($('shuffle').checked) pool.sort(() => Math.random() - .5);
   let size = $('size').value === 'auto' ? Math.pow(2, Math.ceil(Math.log2(pool.length))) : +$('size').value;
   if (size < pool.length) pool = pool.slice(0, size);
@@ -200,14 +234,18 @@ function nextMatch() {
   $('prog').style.width = (done / total * 100) + '%';
   paint('a', a); paint('b', b);
   ['side-a', 'side-b'].forEach(id => $(id).classList.remove('win', 'lose'));
+  if (MODE === 'vote') openVote(a, b, roundName(r.length));
 }
 function paint(k, it) {
   const el = $('side-' + k); el.classList.toggle('noimg', !it.src);
-  el.innerHTML = (it.src ? `<img src="${it.src}" alt="">` : '') + `<div class="label">${esc(it.name)}</div>`;
+  el.innerHTML = (it.src ? `<img src="${it.src}" alt="">` : '') + `<div class="label">${esc(it.name)}</div>`
+    + (MODE === 'vote' ? `<div class="votecnt" id="cnt-${k}">0</div><div class="votebar"><b id="bar-${k}"></b></div>` : '');
 }
 let locked = false;
 function pick(k) {
-  if (locked) return; locked = true;
+  if (locked) return;
+  if (MODE === 'vote' && voteOpen && !confirm('투표가 진행 중이에요. 투표를 무시하고 이쪽을 승자로 할까요?')) return;
+  locked = true; if (MODE === 'vote') { voteOpen = false; clearInterval(voteTimer); }
   const [a, b] = cur(); const win = k === 'a' ? a : b, lose = k === 'a' ? b : a;
   $('side-' + k).classList.add('win'); $('side-' + (k === 'a' ? 'b' : 'a')).classList.add('lose');
   const go = () => {
@@ -216,8 +254,46 @@ function pick(k) {
     history.push({ roundIdx, matchIdx, lose: lose.id });
     matchIdx++; locked = false; nextMatch();
   };
+  if (MODE === 'vote') sb.rpc('wc_set_phase', { p_pin: PIN, p_code: code, p_phase: 'closed', p_winner: win.name });
   $('confirm-click').checked ? setTimeout(go, 900) : go();
 }
+
+// ---- QR 투표 모드 ----
+let voteOpen = false;
+function playUrl() { return location.href.replace(/index\.html.*$|\?.*$|#.*$/, '').replace(/\/$/, '') + '/play.html?room=' + code; }
+function setupRoom() {
+  $('room-code').textContent = code; $('room-url').textContent = playUrl();
+  $('qr').innerHTML = ''; new QRCode($('qr'), { text: playUrl(), width: 110, height: 110, colorDark: '#373282' });
+  if (channel) sb.removeChannel(channel);
+  channel = sb.channel('wc-' + code).on('postgres_changes', { event: '*', schema: 'public', table: 'wc_votes', filter: 'room_code=eq.' + code }, loadTally).subscribe();
+  clearInterval(pollTimer); pollTimer = setInterval(() => { if (voteOpen) loadTally(); }, 2500);
+}
+const thumb = src => new Promise(res => { if (!src) return res(null); const img = new Image(); img.onload = () => { const s = 220 / Math.max(img.width, img.height), c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); res(c.toDataURL('image/jpeg', .7)); }; img.src = src; });
+async function openVote(a, b, round) {
+  matchNo++; tally = { a: 0, b: 0 }; renderTally();
+  const [ai, bi] = await Promise.all([thumb(a.src), thumb(b.src)]);
+  const { error } = await sb.rpc('wc_set_match', { p_pin: PIN, p_code: code, p_match_no: matchNo, p_round: `${title} · ${round}`, p_a_name: a.name, p_a_img: ai, p_b_name: b.name, p_b_img: bi });
+  if (error) { alert(error.message.replace(/^.*?: /, '')); if (/PIN/.test(error.message)) { STEPI_PIN.clear(); PIN = await STEPI_PIN.require(); } return; }
+  voteOpen = true; $('close-vote').classList.remove('hidden');
+  const sec = +$('vote-sec').value; clearInterval(voteTimer); voteLeft = sec; $('vote-timer').textContent = sec ? sec + '초' : '진행자 마감';
+  if (sec) voteTimer = setInterval(() => { voteLeft--; $('vote-timer').textContent = voteLeft + '초'; if (voteLeft <= 0) { clearInterval(voteTimer); closeVote(); } }, 1000);
+}
+async function loadTally() {
+  const { data } = await sb.rpc('wc_tally', { p_code: code, p_match_no: matchNo });
+  if (data) { tally = data; renderTally(); }
+}
+function renderTally() {
+  const t = tally.a + tally.b; $('vote-total').textContent = t;
+  ['a', 'b'].forEach(k => { const c = $('cnt-' + k), bar = $('bar-' + k); if (c) c.textContent = tally[k]; if (bar) bar.style.width = (t ? tally[k] / t * 100 : 0) + '%'; });
+}
+async function closeVote() {
+  if (!voteOpen) return; voteOpen = false; clearInterval(voteTimer); $('close-vote').classList.add('hidden');
+  await loadTally();
+  await sb.rpc('wc_set_phase', { p_pin: PIN, p_code: code, p_phase: 'closed' });
+  if (tally.a === tally.b) { $('vote-timer').textContent = '동점! 진행자가 클릭해서 결정'; return; }
+  pick(tally.a > tally.b ? 'a' : 'b');
+}
+$('close-vote').onclick = closeVote;
 $('side-a').onclick = () => pick('a'); $('side-b').onclick = () => pick('b');
 document.addEventListener('keydown', e => { if ($('arena-sec').classList.contains('hidden')) return; if (e.key === 'ArrowLeft') pick('a'); if (e.key === 'ArrowRight') pick('b'); });
 $('undo').onclick = () => {
@@ -232,6 +308,7 @@ $('quit').onclick = () => { if (confirm('처음 화면으로 돌아갈까요? (�
 // ---- 결과 ----
 function finish(champ) {
   show('result');
+  if (MODE === 'vote') { clearInterval(pollTimer); sb.rpc('wc_set_phase', { p_pin: PIN, p_code: code, p_phase: 'done', p_winner: champ.name }); }
   $('result-title').textContent = '🏆 ' + title + ' 최종 우승';
   $('champ-img').className = 'img' + (champ.src ? '' : ' noimg');
   $('champ-img').innerHTML = champ.src ? `<img src="${champ.src}" alt="">` : esc(champ.name);
@@ -243,6 +320,7 @@ function finish(champ) {
   confetti();
 }
 $('again').onclick = () => { show('setup'); $('start').click(); };
+$('quit').onclick = () => { if (confirm('처음 화면으로 돌아갈까요? (후보는 유지)')) { voteOpen = false; clearInterval(voteTimer); show('setup'); } };
 $('newcup').onclick = () => { items = []; renderItems(); show('setup'); };
 function show(id) { ['setup', 'arena-sec', 'result'].forEach(s => $(s).classList.toggle('hidden', s !== id)); window.scrollTo(0, 0); }
 function confetti() {
