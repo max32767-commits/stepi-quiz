@@ -293,7 +293,7 @@
     const flipMat = new T.MeshStandardMaterial({ color: 0xff4f86, emissive: 0xc0154b, emissiveIntensity: 0.2, roughness: 0.3, metalness: 0.25 });
     this.movers = map.movers.map(o => {
       if (o.type === 'slider') {
-        const m = new T.Mesh(capsuleGeo(o.len, o.t * 1.1, 0.95), sliderMat);
+        const m = new T.Mesh(capsuleGeo(o.len, o.t * 1.1, 0.95), o.final ? new T.MeshStandardMaterial({ color: 0xff9a2e, emissive: 0x8a4a00, emissiveIntensity: 0.4, roughness: 0.3, metalness: 0.3 }) : sliderMat);
         m.castShadow = true; g.add(m);
         // 왕복 범위 레일과 끝 멈춤쇠
         const x0 = Math.max(0.3, o.cx - o.amp - o.len / 2), x1 = Math.min(W - 0.3, o.cx + o.amp + o.len / 2);
@@ -416,8 +416,9 @@
     this.viewH = 2 * cam.dist * vt;
     this.camY = cam.y - this.viewH / 2;
 
-    const sway = this.reduced ? 0 : Math.sin(this.time * 0.35) * (narrow ? 0.15 : 0.6);
-    let sx = 0, sy = 0;
+    this.shake = Math.max(0, (this.shake || 0) - dt * 2.6); this.pulse = Math.max(0, (this.pulse || 0) - dt * 2.2);
+    const sway = (this.reduced ? 0 : Math.sin(this.time * 0.35) * (narrow ? 0.15 : 0.6)) + (this.shake ? (Math.random() - 0.5) * this.shake * 0.6 : 0);
+    let sx = 0, sy = this.shake ? (Math.random() - 0.5) * this.shake * 0.5 : 0;
     if (this.shake > 0.001 && !this.reduced) { sx = (Math.random() - 0.5) * this.shake; sy = (Math.random() - 0.5) * this.shake; }
     this.shake *= Math.exp(-dt * 7);
     const c = this.camera;
@@ -554,6 +555,18 @@
       if (sz > 1) continue;
       ctx.lineWidth = 3.2; ctx.strokeStyle = this.pal.labelStroke; ctx.strokeText(m.label, sx, sy - 2);
       ctx.fillStyle = this.pal.label; ctx.fillText(m.label, sx, sy - 2);
+    }
+    if (focus && !focus.done && this.mode !== 'manual' && !this.reduced) {
+      const w = this.cssW, h = this.cssH;
+      const vg = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75);
+      vg.addColorStop(0, 'rgba(255,40,40,0)'); vg.addColorStop(1, `rgba(255,40,40,${0.22 + 0.3 * (this.pulse || 0)})`);
+      ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
+      const left = Math.max(0, race.map.goalY - focus.y), txt = `🔥 마지막 한 자리  ${focus.label}  · 결승까지 ${left.toFixed(1)}m`;
+      const fs = Math.max(14, Math.min(22, w / 32)); ctx.font = `800 ${fs}px Pretendard, "Noto Sans KR", system-ui, sans-serif`;
+      const tw = ctx.measureText(txt).width + fs * 1.6, bx = (w - tw) / 2, by = h - fs * 2 - 18;
+      ctx.fillStyle = `rgba(190,20,30,${0.85 + 0.15 * (this.pulse || 0)})`;
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, tw, fs * 2, fs) : ctx.rect(bx, by, tw, fs * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, w / 2, by + fs);
     }
     this.drawMinimap();
     this.drawConfetti(dt);

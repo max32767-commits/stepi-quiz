@@ -29,7 +29,7 @@
 
   /* ------------------------------------------------------------------ 맵 */
   function MapBuilder(H) {
-    this.H = H; this.goalY = H;
+    this.H = H; this.goalY = H; this.finalY = H - 9;
     this.walls = []; this.pegs = []; this.bumpers = []; this.rotors = [];
     this.movers = []; this.portals = [];
   }
@@ -70,7 +70,11 @@
     // 막판 변수 ① 역전 범퍼: 깔때기 양옆에서 선두 구슬을 되튕겨 낸다
     this.bumper(W / 2 - 4.3, H - 7.1, 0.72).bumper(W / 2 + 4.3, H - 7.1, 0.72);
     this.bumpers[this.bumpers.length - 1].final = this.bumpers[this.bumpers.length - 2].final = true;
-    // 막판 변수 ② 결승 회전문: 결승 통로 입구에서 천천히 도는 막대. 가로로 누우면 길이 막히고, 세로로 서면 열린다
+    // 막판 변수 ② 흔들 다리: 결승 구간 입구에서 빠르게 좌우로 오가는 막대
+    this.slider(W / 2, H - 17.5, 6.5, 7.5, 1.7, 0.9);
+    this.movers[this.movers.length - 1].final = true;
+    this.finalY = H - 18;   // 여기부터 결승 구간(연출용)
+    // 막판 변수 ③ 결승 회전문: 결승 통로 입구에서 천천히 도는 막대. 가로로 누우면 길이 막히고, 세로로 서면 열린다
     this.rotor(W / 2, H - 4.4, 3.6, 1.45, 0.3);
     this.rotors[this.rotors.length - 1].final = true;
     this.goalY = H;
@@ -84,7 +88,7 @@
         const H = 118, m = new MapBuilder(H);
         m.funnel(3, 5, 3);
         let row = 0, portalY = 40;
-        for (let y = 9; y < H - 14; y += 2.5, row++) {
+        for (let y = 9; y < H - 20; y += 2.5, row++) {
           if (row === 13) portalY = y + 1.25;
           if (row % 8 === 7) {
             if (row % 16 === 7) {
@@ -140,7 +144,7 @@
         const H = 132, m = new MapBuilder(H);
         m.funnel(3, 5, 3);
         let r = 0;
-        for (let y = 11; y < H - 16; y += 9, r++) {
+        for (let y = 11; y < H - 20; y += 9, r++) {
           const xs = r % 2 ? [W * 0.33, W * 0.67] : [W * 0.17, W * 0.5, W * 0.83];
           xs.forEach((x, i) => m.rotor(x, y, xs.length === 3 ? 5.8 : 7, ((r + i) % 2 ? 1 : -1) * (1.7 + rng() * 1.2), rng() * 6));
           for (let i = 0; i < 5; i++) m.peg(1.5 + rng() * (W - 3), y + 4.2 + rng() * 1.4, 0.24);
@@ -159,7 +163,7 @@
         const H = 140, m = new MapBuilder(H);
         m.funnel(3, 5, 3);
         let r = 0;
-        for (let y = 10; y < H - 16; y += 7.5, r++) {
+        for (let y = 10; y < H - 20; y += 7.5, r++) {
           const xs = r % 2 ? [W * 0.5] : [W * 0.22, W * 0.78];
           if (r % 2) { m.wall(0, y - 1, 2.6, y + 1.2); m.wall(W, y - 1, W - 2.6, y + 1.2); }
           xs.forEach(cx => { m.wall(cx - 3.2, y + 1.8, cx, y, 0.16); m.wall(cx, y, cx + 3.2, y + 1.8, 0.16); });

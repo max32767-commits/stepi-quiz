@@ -157,7 +157,7 @@
     ctx.beginPath(); ctx.moveTo(Math.max(0.3, x0), o.cy); ctx.lineTo(Math.min(W - 0.3, x1), o.cy); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle = C.rail;
     [Math.max(0.3, x0), Math.min(W - 0.3, x1)].forEach(x => { ctx.beginPath(); ctx.arc(x, o.cy, 0.14, 0, TAU); ctx.fill(); });
-    drawBar(ctx, o.ax, o.ay, o.bx, o.by, o.t * 1.1, [C.slideA, C.slideB, C.slideC], { glow: C.neon ? 'rgba(25,199,181,0.2)' : null });
+    drawBar(ctx, o.ax, o.ay, o.bx, o.by, o.t * 1.1, o.final ? ['#ffc46b', '#ED911A', '#b35f05'] : [C.slideA, C.slideB, C.slideC], { glow: o.final ? 'rgba(237,145,26,0.28)' : C.neon ? 'rgba(25,199,181,0.2)' : null });
     // 진행 방향 화살표
     const d = (o.vx || 0) >= 0 ? 1 : -1, cx = (o.ax + o.bx) / 2, cy = (o.ay + o.by) / 2;
     ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 0.07; ctx.lineJoin = 'round';
@@ -200,6 +200,7 @@
     this.ctx = canvas.getContext('2d', { alpha: false });
     this.cssW = 1; this.cssH = 1; this.dpr = 1;
     this.camY = -8; this.mode = 'follow';  // follow | manual | overview
+    this.zoom = 1; this.shake = 0; this.pulse = 0; this.focusMarble = null;   // 결승 연출: 확대·흔들림·심장 박동
     this.reduced = false;
     this.race = null;
     this.highlight = null;  // 당첨 구슬 id 집합
@@ -241,10 +242,15 @@
       this.scale = Math.min(avail / (W + 1), (this.cssH - 16) / total);
     } else {
       // 가로를 맵 폭에 맞추되 세로로 최소 26단위는 보이게 제한
-      this.scale = Math.max(4, Math.min(avail / (W + 1), this.cssH / 26));
+      this.scale = Math.max(4, Math.min(avail / (W + 1), this.cssH / 26)) * this.zoom;
     }
     this.offX = miniW + (this.cssW - miniW - W * this.scale) / 2;
     if (this.cssW < 520) this.offX = (this.cssW - W * this.scale) / 2;
+    if (this.zoom > 1.001) {   // 확대 중엔 결승을 다투는 구슬을 가로 중앙에 둔다(트랙 바깥은 보이지 않게)
+      const f = this.focusMarble, want = this.cssW / 2 - (f ? f.x : W / 2) * this.scale;
+      const left = this.cssW < 520 ? 0 : miniW, right = this.cssW - W * this.scale;
+      this.offX = right < left ? Math.max(right, Math.min(left, want)) : this.offX;
+    }
     this.viewH = this.cssH / this.scale;
   };
 
@@ -277,6 +283,7 @@
     let target;
     const act = race.marbles.filter(m => !m.done);
     if (race.state === 'ready') target = map.topY - 0.5;
+    else if (this.focusMarble && !this.focusMarble.done) target = this.focusMarble.y - this.viewH * 0.5;
     else if (act.length) {
       let lead = act[0]; for (const m of act) if (m.y > lead.y) lead = m;
       target = lead.y - this.viewH * 0.42;
@@ -299,12 +306,22 @@
     }
   };
 
+  function tt0() { return performance.now() / 1000; }
+  Renderer.prototype.viewHBase = function () { return this.cssH / (this.scale / this.zoom); };
   Renderer.prototype.draw = function (dt) {
     const ctx = this.ctx, race = this.race;
     if (!race) return;
-    const map = race.map, s = this.scale, dpr = this.dpr;
+    const map = race.map, dpr = this.dpr;
+    // 결승 연출: 마지막 한 자리를 다투는 구슬이 결승 구간에 들어오면 확대 + 흔들림
+    const focus = this.focusMarble && !this.focusMarble.done && this.mode === 'follow' ? this.focusMarble : null;
+    const zt = focus && !this.reduced ? Math.min(1.8, Math.max(1.15, 32 / this.viewHBase())) : 1;
+    if (Math.abs(zt - this.zoom) > 0.002) { this.zoom += (zt - this.zoom) * (this.reduced ? 1 : 0.07); this.computeView(); }
+    else if (focus && this.zoom > 1.001) this.computeView();   // 가로 추적
+    const s = this.scale;
     this.updateCamera();
-    const camY = this.camY, y0 = camY - 2, y1 = camY + this.viewH + 2;
+    this.shake = Math.max(0, (this.shake || 0) - dt * 2.6); this.pulse = Math.max(0, (this.pulse || 0) - dt * 2.2);
+    const shx = this.shake ? (Math.random() - 0.5) * this.shake * 0.5 : 0, shy = this.shake ? (Math.random() - 0.5) * this.shake * 0.5 : 0;
+    const camY = this.camY + shy, y0 = camY - 2, y1 = camY + this.viewH + 2;
 
     C = PALETTES[window.MR.theme] || PALETTES.light;
     // 배경
@@ -312,8 +329,16 @@
     ctx.fillStyle = C.page; ctx.fillRect(0, 0, this.cssW, this.cssH);
 
     // 월드 좌표계
-    ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * this.offX, dpr * (-camY * s));
+    ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * (this.offX + shx * s), dpr * (-camY * s));
     const top = Math.max(map.topY - 0.5, y0), bot = Math.min(map.goalY + 3, y1);
+    // 결승 구간 바닥: 붉은 경고 띠
+    if (map.finalY < y1 && map.goalY > y0) {
+      const g2 = ctx.createLinearGradient(0, map.finalY, 0, map.goalY);
+      g2.addColorStop(0, 'rgba(255,70,70,0)'); g2.addColorStop(1, `rgba(255,70,70,${focus ? 0.16 + 0.1 * this.pulse : 0.07})`);
+      ctx.fillStyle = g2; ctx.fillRect(0, Math.max(top, map.finalY), W, Math.min(bot, map.goalY) - Math.max(top, map.finalY));
+      ctx.strokeStyle = focus ? 'rgba(255,90,90,0.9)' : 'rgba(255,90,90,0.45)'; ctx.lineWidth = 0.1; ctx.setLineDash([0.6, 0.4]); ctx.lineDashOffset = -tt0() * 2;
+      ctx.beginPath(); ctx.moveTo(0, map.finalY); ctx.lineTo(W, map.finalY); ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0;
+    }
     ctx.fillStyle = C.track; ctx.fillRect(0, top, W, bot - top);
     // 은은한 격자
     ctx.strokeStyle = C.grid; ctx.lineWidth = 1 / s;
@@ -426,8 +451,24 @@
       ctx.fillStyle = C.label; ctx.fillText(m.label, sx, sy);
     }
 
+    if (focus) this.drawFinale(focus, lead);
     this.drawMinimap(lead);
     this.drawConfetti(dt);
+  };
+
+  // 결승 연출 오버레이: 붉은 비네트(심장 박동에 맞춰 짙어짐) + 상단 배너
+  Renderer.prototype.drawFinale = function (focus, lead) {
+    const ctx = this.ctx, dpr = this.dpr, w = this.cssW, h = this.cssH;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const vg = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75);
+    vg.addColorStop(0, 'rgba(255,40,40,0)'); vg.addColorStop(1, `rgba(255,40,40,${0.22 + 0.3 * this.pulse})`);
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
+    const map = this.race.map, left = Math.max(0, map.goalY - focus.y), txt = `🔥 마지막 한 자리  ${focus.label}  · 결승까지 ${left.toFixed(1)}m`;
+    const fs = Math.max(14, Math.min(22, w / 32)); ctx.font = `800 ${fs}px Pretendard, "Noto Sans KR", system-ui, sans-serif`;
+    const tw = ctx.measureText(txt).width + fs * 1.6, bx = (w - tw) / 2, by = h - fs * 2 - 18 - (this.pulse > 0.6 ? (this.pulse - 0.6) * 10 : 0);
+    ctx.fillStyle = `rgba(190,20,30,${0.85 + 0.15 * this.pulse})`;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, tw, fs * 2, fs) : ctx.rect(bx, by, tw, fs * 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, w / 2, by + fs);
   };
 
   Renderer.prototype.drawMinimap = function (lead) {

@@ -322,7 +322,7 @@
       if (m.done || (byP && seen.has(m.pid))) continue;
       if (!best || m.y > best.y) best = m;
     }
-    return best && best.y > race.map.goalY - 9 ? best : null;
+    return best && best.y > race.map.finalY ? best : null;
   }
 
   function processEvents() {
@@ -483,6 +483,7 @@
 
   /* ---------------------------------------------------------- 메인 루프 */
   let last = performance.now();
+  S.heartAt = 0;
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     const race = S.race;
@@ -492,7 +493,14 @@
       if (!crit && S.crit) updateHud(true);
       S.crit = crit;
       renderer.focusMarble = el.reduce.checked ? null : crit;
-      const slow = crit && !el.reduce.checked ? 0.3 : 1;      // 결승 슬로모션(재생 속도만 바뀌고 결과는 같음)
+      // 결승 슬로모션(재생 속도만 바뀌고 결과는 같음): 결승 구간 입구 0.5배 → 결승선 앞 0.22배까지 점점 느려진다
+      let slow = 1;
+      if (crit && !el.reduce.checked) {
+        const k = Math.max(0, Math.min(1, (crit.y - race.map.finalY) / (race.map.goalY - race.map.finalY)));
+        slow = 0.5 - 0.28 * k;
+        // 심장 박동: 결승선에 가까울수록 빨라진다
+        if (now - S.heartAt > 950 - 600 * k) { S.heartAt = now; Sound.play('heart', 10 + 20 * k); renderer.pulse = 1; }
+      }
       const speed = race.state === 'running' ? (+el.speed.value || 1) * slow : 1;
       S.acc += dt * speed;
       let n = 0; const maxSteps = 40;
@@ -506,6 +514,7 @@
           for (const im of imps) if (im.y > y0 && im.y < y1) Sound.play(im.kind, im.v, (im.x / W) * 1.4 - 0.7);
         }
         if (renderer.onImpacts) renderer.onImpacts(imps);
+        if (crit && !el.reduce.checked) for (const im of imps) if (im.y > race.map.finalY && (im.kind === 'bumper' || im.kind === 'rotor' || im.kind === 'slider' || im.kind === 'goal')) renderer.shake = Math.max(renderer.shake || 0, im.kind === 'goal' ? 1 : 0.55);
         imps.length = 0;
       }
       if (race.state === 'done' && !el.pause.disabled) updateControls();

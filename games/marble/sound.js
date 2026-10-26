@@ -44,7 +44,7 @@
   }
 
   // 종류별 최소 간격(초)과 초당 전체 상한으로 소리가 뭉개지지 않게 한다
-  const GAP = { peg: 0.03, wall: 0.05, rotor: 0.06, slider: 0.08, flipper: 0.08, bumper: 0.07, portal: 0.15, goal: 0.06, shock: 0.2, boost: 0.15 };
+  const GAP = { heart: 0.3, peg: 0.03, wall: 0.05, rotor: 0.06, slider: 0.08, flipper: 0.08, bumper: 0.07, portal: 0.15, goal: 0.06, shock: 0.2, boost: 0.15 };
   S.play = function (kind, v, pan) {
     if (!S.enabled || !S.ctx || S.ctx.state !== 'running') return;
     const now = S.ctx.currentTime;
@@ -66,6 +66,7 @@
       case 'win': [523, 659, 784, 1047].forEach((f, i) => { tone('triangle', f, 0, 0.35 + i * 0.1, 0.22, 0, i * 0.11); tone('sine', f * 2, 0, 0.3, 0.06, 0, i * 0.11); }); break;
       case 'start': noise('highpass', 2000, 6000, 1, 0.08, 0.15, 0); tone('sine', 300, 900, 0.35, 0.15, 0); break;
       case 'tension': tone('sine', 110, 0, 0.6, 0.18, 0); break;
+      case 'heart': tone('sine', 62, 40, 0.16, 0.22 + 0.25 * k, 0); tone('sine', 56, 38, 0.14, 0.16 + 0.2 * k, 0, 0.17); break;
     }
   };
 
