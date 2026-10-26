@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>눈썰미 콘테스트</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="../ox/ox.css">
+<style>
+  .wrap{max-width:1380px;margin:0 auto;padding:20px;display:grid;grid-template-columns:340px minmax(0,1fr);gap:20px;align-items:start}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}}
+  .card h2{font-size:17px;margin:0 0 10px}
+  .field{display:grid;gap:5px;margin:10px 0}.field label{font-size:13px;color:var(--muted)}
+  select,input[type=number]{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+  input[type=range]{width:100%;accent-color:var(--navy)}
+  .hint{font-size:12px;color:var(--muted);line-height:1.5}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:16px;text-align:center;color:var(--muted);cursor:pointer;font-size:14px}.drop.over{border-color:var(--orange);color:var(--orange)}.drop input{display:none}
+  .list{display:grid;gap:6px;margin-top:10px;max-height:260px;overflow:auto}
+  .item{display:grid;grid-template-columns:44px 1fr auto auto;gap:8px;align-items:center;padding:4px 6px;border-radius:10px;background:#f5f6fb;cursor:pointer;font-size:14px}
+  .item.cur{background:#fff1e0;outline:2px solid var(--orange)}
+  .item img{width:44px;height:44px;object-fit:cover;border-radius:6px;background:#ddd}
+  .item .nm{font-weight:700;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item .ans{font-size:12px;color:var(--muted)}
+  .item .x{background:none;color:#999;font-size:16px;padding:4px 6px}
+  .sep{height:1px;background:var(--line);margin:14px 0}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.btnrow .btn{flex:1}
+  .stage-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .stage-top h1{font-size:clamp(24px,3vw,38px);color:var(--navy)}
+  .eyebrow{font-size:12px;letter-spacing:.14em;font-weight:800;color:var(--orange)}
+  .board{position:relative;width:100%;aspect-ratio:4/3;max-height:74vh;background:#0b0e14;border-radius:18px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+  .board>img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transition:filter .5s ease}
+  .board .empty{color:#8a93a6;font-size:18px;text-align:center;padding:30px}
+  .tiles{position:absolute;inset:0;display:grid;gap:3px}
+  .tile{position:relative;overflow:hidden;background:#0b0e14;border:1px solid #ffffff18}
+  .tile>div{position:absolute;inset:-2px;background-repeat:no-repeat;transition:filter .4s}
+  .answer{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);background:rgba(17,20,30,.88);color:#ffe5a3;padding:12px 28px;border-radius:14px;font-size:clamp(22px,3.5vw,44px);font-weight:900;white-space:nowrap;animation:pop .35s ease-out}
+  @keyframes pop{from{transform:translateX(-50%) scale(.6);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
+  .status{margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:14px}
+  .steps{display:flex;gap:3px;flex:1;min-width:160px}.steps i{flex:1;height:8px;border-radius:3px;background:var(--line)}.steps i.on{background:var(--orange)}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .controls .btn.big{font-size:20px;padding:16px 28px}
+  kbd{font:inherit;font-size:12px;background:#eef0fa;border-radius:6px;padding:1px 6px;color:var(--navy)}
+</style>
+</head>
+<body class="host" style="padding:0">
+<div class="topbar">
+  <a class="brand" href="../../"><img src="../../assets/logo-word.png" alt="STEPI" style="height:26px"><img src="../../assets/logo-dots.png" alt="" style="height:20px"> 랜덤 게임</a>
+  <span class="pill">👀 눈썰미 콘테스트 · 진행자</span>
+</div>
+<div class="wrap">
+  <aside style="display:grid;gap:16px">
+    <div class="card">
+      <h2>1. 사진 준비</h2>
+      <div class="drop" id="drop"><input type="file" id="file" accept="image/*,.html,.htm" multiple>📷 사진을 고르거나 끌어다 놓으세요<br><span class="hint">파일 이름이 정답이 됩니다 (예: 차은우.jpg). 예전 행사용 HTML 파일을 넣으면 그 안의 사진을 불러옵니다.</span></div>
+      <div class="list" id="list"></div>
+      <div class="hint" id="count" style="margin-top:8px">아직 사진이 없어요.</div>
+      <div class="btnrow"><button class="btn sm ghost" id="shuffle">순서 섞기</button><button class="btn sm ghost" id="clearAll">모두 지우기</button></div>
+      <div class="sep"></div>
+      <button class="btn orange" id="save" style="width:100%">💾 사진 포함 HTML 저장</button>
+      <div class="hint" style="margin-top:6px">사진이 들어간 HTML 한 파일로 저장해 두면 행사 당일 인터넷 없이도 파일만 열어 바로 진행할 수 있어요. 사진은 이 브라우저 안에서만 처리되고 서버로 올라가지 않습니다.</div>
+    </div>
+    <div class="card">
+      <h2>2. 가림 방식</h2>
+      <div class="field"><label>방식</label><select id="effect"><option value="blur">블러를 단계별로 걷어내기</option><option value="tiles">모자이크 조각을 재배열하며 공개</option></select></div>
+      <div id="blurOpt">
+        <div class="field"><label>처음 블러 강도: <b id="blurLbl">60</b>px</label><input type="range" id="blur" min="20" max="80" value="60"></div>
+        <div class="field"><label>공개 단계</label><select id="bsteps"><option>4</option><option selected>6</option><option>8</option><option>10</option></select></div>
+      </div>
+      <div id="tileOpt" class="hidden">
+        <div class="field"><label>조각 수</label><select id="tcount"><option value="32" selected>32조각 (8×4)</option><option value="48">48조각 (8×6)</option><option value="64">64조각 (8×8)</option></select></div>
+        <div class="field"><label>한 번에 공개할 조각</label><select id="treveal"><option value="2" selected>2조각</option><option value="4">4조각</option><option value="8">8조각</option></select></div>
+      </div>
+      <div class="hint">단축키: <kbd>Space</kbd> 한 단계 공개 · <kbd>Enter</kbd> 정답 공개 · <kbd>←</kbd><kbd>→</kbd> 이전/다음 문제 · <kbd>R</kbd> 처음 상태로</div>
+    </div>
+  </aside>
+
+  <section class="card">
+    <div class="stage-top">
+      <div><div class="eyebrow">EYE-SIGHT CONTEST</div><h1 id="title">문제 1</h1></div>
+      <span class="pill" id="progress">0 / 0</span>
+    </div>
+    <div class="board" id="board"><div class="empty">왼쪽에서 사진을 추가하면 여기에 나옵니다.</div></div>
+    <div class="status"><div class="steps" id="steps"></div><span id="stat">대기 중</span></div>
+    <div class="controls">
+      <button class="btn orange big" id="reveal">한 단계 공개</button>
+      <button class="btn big" id="answer">정답 공개</button>
+      <button class="btn ghost" id="reset">처음 상태로</button>
+      <span style="flex:1"></span>
+      <button class="btn ghost" id="prev">◀ 이전 문제</button>
+      <button class="btn" id="next">다음 문제 ▶</button>
+    </div>
+  </section>
+</div>
+
+<script id="embedded" type="application/json">[]</script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let photos = [], cur = 0, step = 0, solved = false, tileOrder = [], tileReveal = [];
+
+// ---- 사진 불러오기 ----
+try { const e = JSON.parse($('embedded').textContent); if (Array.isArray(e)) photos = e.filter(x => x && x.name && typeof x.url === 'string' && x.url.startsWith('data:image/')); } catch (e) {}
+function readImg(f) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res({ name: f.name.replace(/\.[^.]+$/, ''), url: r.result }); r.onerror = () => rej(new Error('사진을 읽지 못했어요')); r.readAsDataURL(f); }); }
+function readHtml(f) {   // 예전 행사용 HTML(embeddedEyeData / embedded) 에서 사진 추출
+  return new Promise(res => { const r = new FileReader(); r.onload = () => {
+    const out = []; const doc = new DOMParser().parseFromString(r.result, 'text/html');
+    doc.querySelectorAll('script[type="application/json"]').forEach(s => { if (!/embedded(EyeData)?$/.test(s.id)) return; try { const a = JSON.parse(s.textContent); if (Array.isArray(a)) a.forEach(x => { if (x && x.name && typeof x.url === 'string' && x.url.startsWith('data:image/')) out.push({ name: x.name, url: x.url }); }); } catch (e) {} });
+    res(out); }; r.readAsText(f); });
+}
+async function addFiles(files) {
+  const added = [];
+  for (const f of [...files]) {
+    if (f.type.startsWith('image/')) added.push(await readImg(f));
+    else if (/\.html?$/i.test(f.name)) added.push(...await readHtml(f));
+  }
+  if (!added.length) return;
+  const wasEmpty = !photos.length; photos.push(...added);
+  if (wasEmpty) cur = 0;
+  renderList(); resetQ();
+}
+const drop = $('drop');
+drop.onclick = () => $('file').click();
+$('file').onchange = e => { addFiles(e.target.files); e.target.value = ''; };
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+$('shuffle').onclick = () => { for (let i = photos.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [photos[i], photos[j]] = [photos[j], photos[i]]; } cur = 0; renderList(); resetQ(); };
+$('clearAll').onclick = () => { if (photos.length && confirm('사진을 모두 지울까요?')) { photos = []; cur = 0; renderList(); resetQ(); } };
+
+function renderList() {
+  $('list').innerHTML = photos.map((p, i) => `<div class="item ${i === cur ? 'cur' : ''}" data-i="${i}"><img src="${p.url}" alt=""><div><div class="nm">문제 ${i + 1}</div><div class="ans">정답: ${esc(p.name)}</div></div><button class="x" data-del="${i}" title="삭제">✕</button></div>`).join('');
+  $('count').textContent = photos.length ? `${photos.length}장 준비됨 · 목록을 누르면 그 문제로 이동` : '아직 사진이 없어요.';
+}
+$('list').onclick = e => {
+  const d = e.target.closest('[data-del]'); if (d) { photos.splice(+d.dataset.del, 1); cur = Math.min(cur, Math.max(0, photos.length - 1)); renderList(); resetQ(); return; }
+  const it = e.target.closest('.item'); if (it) { cur = +it.dataset.i; renderList(); resetQ(); }
+};
+
+// ---- 사진 포함 HTML 저장 ----
+$('save').onclick = () => {
+  if (!photos.length) return alert('먼저 사진을 추가하세요.');
+  const doc = document.documentElement.cloneNode(true);
+  doc.querySelector('#embedded').textContent = JSON.stringify(photos.map(({ name, url }) => ({ name, url }))).replace(/</g, '\\u003c');
+  doc.querySelectorAll('[src],[href]').forEach(el => { const a = el.getAttribute('src') ? 'src' : 'href'; const v = el.getAttribute(a); if (v && !/^(data:|https?:|#)/.test(v)) el.setAttribute(a, new URL(v, location.href).href); });
+  doc.querySelectorAll('.list .item').forEach(el => el.remove());
+  const blob = new Blob(['<!doctype html>\n' + doc.outerHTML], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `눈썰미콘테스트_${photos.length}문제.html`; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+};
+
+// ---- 진행 ----
+$('effect').onchange = () => { $('blurOpt').classList.toggle('hidden', $('effect').value !== 'blur'); $('tileOpt').classList.toggle('hidden', $('effect').value !== 'tiles'); resetQ(); };
+$('blur').oninput = () => { $('blurLbl').textContent = $('blur').value; resetQ(); };
+['bsteps', 'tcount', 'treveal'].forEach(id => $(id).onchange = resetQ);
+function maxStep() { return $('effect').value === 'blur' ? +$('bsteps').value : Math.ceil(+$('tcount').value / +$('treveal').value); }
+function resetQ() { step = 0; solved = false; tileOrder = []; tileReveal = []; render(); }
+function shuffled(n) { const a = Array.from({ length: n }, (_, i) => i); for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+function render() {
+  const p = photos[cur], b = $('board'); b.innerHTML = '';
+  $('progress').textContent = photos.length ? `${cur + 1} / ${photos.length}` : '0 / 0';
+  $('title').textContent = p ? (solved ? p.name : `문제 ${cur + 1}`) : '사진을 추가하세요';
+  ['reveal', 'answer', 'reset', 'prev', 'next'].forEach(id => $(id).disabled = !p);
+  document.querySelectorAll('.item').forEach((el, i) => el.classList.toggle('cur', i === cur));
+  const M = maxStep(); $('steps').innerHTML = Array.from({ length: M }, (_, i) => `<i class="${solved || i < step ? 'on' : ''}"></i>`).join('');
+  if (!p) { b.innerHTML = '<div class="empty">왼쪽에서 사진을 추가하면 여기에 나옵니다.</div>'; $('stat').textContent = '대기 중'; return; }
+  if ($('effect').value === 'blur') {
+    const amt = +$('blur').value, blur = solved ? 0 : Math.max(0, amt * (1 - step / M));
+    const img = document.createElement('img'); img.src = p.url; img.alt = ''; img.style.filter = blur ? `blur(${blur}px)` : 'none'; if (blur) img.style.transform = 'scale(1.06)'; b.appendChild(img);
+    $('reveal').textContent = solved ? '공개 완료' : step >= M ? '최대로 공개됨' : '한 단계 공개';
+    $('stat').textContent = solved ? '정답 공개' : `블러 ${Math.round(blur)}px · ${step}/${M}단계`;
+  } else {
+    const count = +$('tcount').value, cols = 8, rows = count / cols, per = +$('treveal').value;
+    if (tileOrder.length !== count) { tileOrder = shuffled(count); tileReveal = shuffled(count); }
+    const shown = solved ? count : Math.min(count, step * per), open = new Set(tileReveal.slice(0, shown));
+    const wrap = document.createElement('div'); wrap.className = 'tiles'; wrap.style.gridTemplateColumns = `repeat(${cols},minmax(0,1fr))`; wrap.style.gridTemplateRows = `repeat(${rows},minmax(0,1fr))`;
+    for (let pos = 0; pos < count; pos++) {
+      const ok = solved || open.has(pos), src = ok ? pos : tileOrder[pos], col = src % cols, row = Math.floor(src / cols);
+      const t = document.createElement('div'); t.className = 'tile';
+      const d = document.createElement('div');
+      d.style.cssText = `background-image:url("${p.url}");background-size:${cols * 100}% ${rows * 100}%;background-position:${col / (cols - 1) * 100}% ${rows === 1 ? 0 : row / (rows - 1) * 100}%;filter:${ok ? 'none' : 'blur(12px) brightness(.85)'};transform:${ok ? 'none' : 'scale(1.05)'}`;
+      t.appendChild(d); wrap.appendChild(t);
+    }
+    b.appendChild(wrap);
+    $('reveal').textContent = solved ? '공개 완료' : shown >= count ? '최대로 공개됨' : `${per}조각 공개`;
+    $('stat').textContent = solved ? '정답 공개' : `${shown}/${count}조각 제자리 · 나머지는 흐린 랜덤 배열`;
+  }
+  if (solved) { const a = document.createElement('div'); a.className = 'answer'; a.textContent = '정답: ' + p.name; b.appendChild(a); }
+}
+function reveal() { if (!photos[cur] || solved) return; step = Math.min(maxStep(), step + 1); render(); }
+function answer() { if (!photos[cur]) return; solved = true; render(); }
+function go(d) { if (!photos.length) return; cur = (cur + d + photos.length) % photos.length; renderList(); resetQ(); }
+$('reveal').onclick = reveal; $('answer').onclick = answer; $('reset').onclick = resetQ;
+$('prev').onclick = () => go(-1); $('next').onclick = () => go(1);
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input,select,textarea')) return;
+  if (e.code === 'Space') { e.preventDefault(); reveal(); }
+  else if (e.key === 'Enter') answer();
+  else if (e.key === 'ArrowRight') go(1); else if (e.key === 'ArrowLeft') go(-1);
+  else if (e.key === 'r' || e.key === 'R') resetQ();
+});
+renderList(); render();
+</script>
+<script src="../../shared/home.js"></script>
+</body>
+</html>
