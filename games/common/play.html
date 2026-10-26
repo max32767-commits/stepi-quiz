@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<title>공통점 찾기 — 참가</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="../ox/ox.css">
+<style>
+  .qno{font-size:13px;color:var(--muted);font-weight:700;letter-spacing:.08em;text-align:center}
+  .q{font-size:clamp(22px,6vw,30px);font-weight:900;text-align:center;color:var(--navy);margin:8px 0 18px;line-height:1.3}
+  .opts{display:grid;gap:14px}
+  .opt{border:0;border-radius:20px;padding:28px 16px;font-size:clamp(22px,6vw,30px);font-weight:900;color:#fff;cursor:pointer;transition:transform .08s;position:relative}
+  .opt:active{transform:scale(.97)}.opt.a{background:#2f80ed}.opt.b{background:#ED911A}
+  .opt.picked::after{content:'✓ 선택';position:absolute;top:8px;right:12px;font-size:13px;background:rgba(255,255,255,.3);padding:3px 10px;border-radius:999px}
+  .opt.dim{opacity:.4}
+  .msg{text-align:center;font-weight:700;color:var(--muted);margin-top:14px;min-height:1.5em}
+  .res{margin-top:16px;border-radius:16px;padding:14px;text-align:center;font-weight:800;font-size:18px}
+  .res.a{background:#e9f2ff;color:#2f80ed}.res.b{background:#fff4e5;color:#ED911A}
+  .matches{display:grid;gap:8px;margin-top:12px}
+  .matches .m{display:flex;align-items:center;gap:12px;background:#f5f6fb;border-radius:12px;padding:12px 14px;font-weight:800;font-size:18px}
+  .matches .m .md{font-size:24px;width:32px;text-align:center}.matches .m .r{margin-left:auto;color:var(--navy);font-variant-numeric:tabular-nums}
+  .matches .m.top{background:#fff1e0}
+  .pct{font-size:40px;font-weight:900;color:var(--orange);text-align:center}
+</style>
+</head>
+<body>
+<div class="play">
+  <div class="topbar" style="border-radius:14px;border:1px solid var(--line)">
+    <a class="brand" href="../../"><img src="../../assets/logo-word.png" alt="STEPI" style="height:26px"><img src="../../assets/logo-dots.png" alt="" style="height:20px"></a>
+    <span class="pill">🤝 공통점 찾기</span>
+  </div>
+
+  <section id="join" class="card">
+    <h2>참가하기</h2>
+    <p class="muted">큰 화면의 4자리 코드와 이름을 넣으세요.</p>
+    <input class="code" id="code" inputmode="numeric" maxlength="4" placeholder="0000">
+    <input class="name" id="name" maxlength="12" placeholder="이름 (예: 홍길동)" autocomplete="off" style="margin:10px 0 14px">
+    <button class="btn orange" id="go">입장</button>
+    <p class="muted" id="join-msg" style="margin:10px 0 0"></p>
+  </section>
+
+  <section id="wait" class="card hidden" style="text-align:center;padding:40px 20px">
+    <div style="font-size:52px">🤝</div>
+    <h2 id="wait-title">입장 완료!</h2>
+    <p class="muted" id="wait-sub">진행자가 질문을 띄우면 여기서 고를 수 있어요.</p>
+  </section>
+
+  <section id="quiz" class="card hidden">
+    <div class="qno" id="qno"></div>
+    <div class="q" id="qtext"></div>
+    <div class="opts"><button class="opt a" id="optA"></button><button class="opt b" id="optB"></button></div>
+    <div class="msg" id="msg">둘 중 하나를 고르세요</div>
+    <div class="res hidden" id="res"></div>
+  </section>
+
+  <section id="done" class="card hidden">
+    <h2 style="text-align:center">🤝 나와 가장 잘 맞는 사람</h2>
+    <p class="muted" style="text-align:center;margin:4px 0 0" id="done-sub"></p>
+    <div class="matches" id="matches"></div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../../shared/supabase-config.js"></script>
+<script src="../../shared/supabase-client.js"></script>
+<script>
+if (!window.sb) throw new Error('Supabase 설정 없음');
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const qs = new URLSearchParams(location.search);
+let code = (qs.get('room') || '').replace(/\D/g, '').slice(0, 4), me = null, room = null, myPick = {}, shownQ = -1, doneShown = false;
+$('code').value = code;
+try { $('name').value = localStorage.getItem('stepi:name') || ''; } catch (e) {}
+if (code) $('name').focus();
+
+$('go').onclick = async () => {
+  code = $('code').value.replace(/\D/g, ''); const name = $('name').value.trim();
+  if (code.length !== 4) return $('join-msg').textContent = '코드 4자리를 입력하세요.';
+  if (!name) return $('join-msg').textContent = '이름을 입력하세요.';
+  $('go').disabled = true; $('join-msg').textContent = '입장 중…';
+  let pid = null; try { pid = +localStorage.getItem('cm:' + code) || null; } catch (e) {}
+  const { data, error } = await sb.rpc('cm_join', { p_code: code, p_name: name, p_pid: pid });
+  if (error) { $('go').disabled = false; return $('join-msg').textContent = error.message.replace(/^.*?: /, ''); }
+  me = data; try { localStorage.setItem('cm:' + code, me.id); localStorage.setItem('stepi:name', name); } catch (e) {}
+  // 새로고침해도 내 답 유지
+  const { data: mine } = await sb.from('cm_answers').select('q_no,choice').eq('room_code', code).eq('player_id', me.id);
+  (mine || []).forEach(x => myPick[x.q_no] = x.choice);
+  show('wait'); subscribe();
+};
+$('name').onkeydown = e => { if (e.key === 'Enter') $('go').click(); };
+
+function subscribe() {
+  sb.channel('cm-play-' + code + '-' + me.id)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'cm_rooms', filter: 'code=eq.' + code }, p => onRoom(p.new))
+    .subscribe();
+  const poll = async () => { const { data: r } = await sb.from('cm_rooms').select('*').eq('code', code).maybeSingle(); if (r) onRoom(r); };
+  poll(); setInterval(poll, 3000);
+}
+function show(id) { ['join', 'wait', 'quiz', 'done'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
+function onRoom(r) {
+  room = r; const q = (r.questions || [])[r.q_no];
+  if (r.phase === 'lobby') { show('wait'); $('wait-title').textContent = '입장 완료!'; $('wait-sub').textContent = '진행자가 질문을 띄우면 여기서 고를 수 있어요.'; myPick = {}; shownQ = -1; doneShown = false; return; }
+  if (r.phase === 'done') { if (!doneShown) { doneShown = true; showDone(); } return; }
+  if (!q) return;
+  show('quiz');
+  if (shownQ !== r.q_no) { shownQ = r.q_no; $('res').classList.add('hidden'); }
+  $('qno').textContent = `Q${r.q_no + 1} / ${r.questions.length}`; $('qtext').textContent = q.q; $('optA').textContent = q.a; $('optB').textContent = q.b;
+  const mine = myPick[r.q_no];
+  $('optA').classList.toggle('picked', mine === 'a'); $('optB').classList.toggle('picked', mine === 'b');
+  const open = r.phase === 'q';
+  $('optA').disabled = $('optB').disabled = !open;
+  $('optA').classList.toggle('dim', !open && mine !== 'a'); $('optB').classList.toggle('dim', !open && mine !== 'b');
+  if (open) $('msg').textContent = mine ? '골랐어요! 바꾸려면 다른 쪽을 누르세요' : '둘 중 하나를 고르세요';
+  else { $('msg').textContent = mine ? '마감 — 큰 화면에서 같은 편을 확인하세요' : '마감 — 이번 질문은 답하지 않았어요'; if (mine) showRes(r.q_no, mine, q); }
+}
+async function showRes(qn, mine, q) {
+  const { data: t } = await sb.rpc('cm_tally', { p_code: code, p_q: qn }); if (!t) return;
+  const n = t[mine].length, tot = t.a.length + t.b.length || 1;
+  $('res').className = 'res ' + mine; $('res').classList.remove('hidden');
+  $('res').innerHTML = `"${esc(q[mine])}" 편 ${n}명 (${Math.round(n / tot * 100)}%)<br><span style="font-size:14px;font-weight:600">${esc(t[mine].filter(x => x !== me.name).slice(0, 12).join(', '))}${t[mine].length > 13 ? ' …' : ''}</span>`;
+}
+async function pick(k) {
+  if (!room || room.phase !== 'q') return;
+  const prev = myPick[room.q_no]; myPick[room.q_no] = k; onRoom(room);
+  if (navigator.vibrate) navigator.vibrate(25);
+  const { error } = await sb.rpc('cm_answer', { p_code: code, p_q: room.q_no, p_pid: me.id, p_choice: k });
+  if (error) { myPick[room.q_no] = prev; onRoom(room); $('msg').textContent = error.message.replace(/^.*?: /, ''); }
+}
+$('optA').onclick = () => pick('a'); $('optB').onclick = () => pick('b');
+async function showDone() {
+  show('done');
+  const { data } = await sb.rpc('cm_matches', { p_code: code, p_pid: me.id, p_limit: 5 });
+  const medals = ['🥇', '🥈', '🥉', '4', '5'], mineN = Object.keys(myPick).length;
+  $('done-sub').textContent = mineN ? `내가 답한 ${mineN}문항 기준` : '답한 문항이 없어요';
+  $('matches').innerHTML = (data || []).length ? data.map((m, i) => `<div class="m ${i === 0 ? 'top' : ''}"><span class="md">${medals[i]}</span>${esc(m.name)}<span class="r">${m.same}/${m.total} · ${Math.round(m.same / (m.total || 1) * 100)}%</span></div>`).join('') : '<p class="muted" style="text-align:center">비교할 사람이 없어요</p>';
+}
+</script>
+</body>
+</html>

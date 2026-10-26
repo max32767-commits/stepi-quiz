@@ -10,6 +10,9 @@ window.GAMES = [
   { id: 'worldcup', title: '이상형 월드컵', emoji: '🏆', cat: 'party', mode: 'multi', players: '다 같이',
     desc: '사진이나 글 후보를 한꺼번에 넣으면 랜덤 대진으로 둘씩 붙어요. 진행자가 클릭해 고르거나, 참가자가 QR로 투표해서 많은 쪽이 올라가요. 마지막에 남는 하나가 우승!',
     tags: ['사진', '토너먼트', 'QR 투표', '큰 화면'] },
+  { id: 'common', title: '공통점 찾기', emoji: '🤝', cat: 'team', mode: 'multi', players: '2~200명',
+    desc: '"아침형? 저녁형?", "민초 좋아? 싫어?" 같은 질문에 폰으로 답하면 큰 화면에서 같은 답끼리 모여요. 끝나면 나와 답이 가장 많이 겹친 사람 TOP 5를 폰이 알려주는 아이스브레이킹 게임.',
+    tags: ['휴대폰 참가', '아이스브레이킹', 'QR 입장', '진행자 PIN'] },
   { id: 'teams', title: '두근두근 조 추첨', emoji: '🎈', cat: 'team', mode: 'host', players: '최대 100명',
     desc: '참가자 이름을 넣으면 버블 풀에서 한 명씩 뽑아 조에 배정해요. 카운트다운, 스포트라이트 연출, 속도 조절.',
     tags: ['조편성', '연찬회', '큰 화면'] },
@@ -31,7 +34,7 @@ window.GAMES = [
   { id: 'reaction', title: '반응속도 대결', emoji: '⚡', cat: 'activity', mode: 'multi', players: '2~200명',
     desc: '큰 화면과 모든 폰이 동시에 초록으로 바뀌는 순간 누르기! 빨강(STOP) 페이크에 걸리면 감점. 반응시간 순위로 점수, 여러 라운드 총점 1위가 우승.',
     tags: ['휴대폰 참가', '동시 반응', 'QR 입장', '진행자 PIN'] },
-  { id: 'kkomentle', title: '꼬맨틀', emoji: '🧠', cat: 'team', mode: 'multi', players: '여럿이 함께',
+  { id: 'kkomentle', title: '꼬맨틀', emoji: '🧠', cat: 'quiz', mode: 'multi', players: '여럿이 함께',
     desc: '정답 단어와의 의미 유사도만 보고 단어를 맞혀요. 모두의 추측이 한 표에 실시간으로 쌓여서 같이 좁혀 가는 협동 게임. 진행자가 정답을 직접 정할 수 있어요.',
     tags: ['휴대폰 참가', '협동', 'QR 입장', '진행자 PIN'] },
 ];

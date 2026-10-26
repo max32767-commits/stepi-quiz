@@ -18,6 +18,7 @@
 | ⚡ 스피드 퀴즈 `games/ox` | 진행자 큰 화면 + 참가자 휴대폰 | Supabase | 주관식(또는 OX) 정답을 폰으로 제출, 빨리 맞힐수록 높은 점수, 총점 1위 우승 |
 | 🎱 실시간 로또 `games/lotto` | 진행자 큰 화면 + 참가자 휴대폰 | Supabase | 폰으로 6개 번호 선택 → 큰 화면 추첨 → 맞힌 수로 1·2·3등(인원 설정) |
 | ⚡ 반응속도 대결 `games/reaction` | 진행자 큰 화면 + 참가자 휴대폰 | Supabase | 동시에 바뀌는 신호에 가장 빨리 누르기, 페이크(STOP) 라운드 포함, 총점 1위 우승 |
+| 🤝 공통점 찾기 `games/common` | 진행자 큰 화면 + 참가자 휴대폰 | Supabase | 양자택일 질문에 답하면 같은 답끼리 모이고, 끝나면 가장 잘 맞는 짝 TOP 5 |
 | 🧠 꼬맨틀 `games/kkomentle` | 여럿이 휴대폰 | Supabase | 단어 의미 유사도 추측 협동 게임 |
 
 새 게임 추가: `games/<id>/index.html` 폴더를 만들고 `games.js` 배열에 한 줄 추가. 각 게임 페이지 끝에 `<script src="../../shared/home.js"></script>`를 넣으면 "랜덤 게임 홈" 버튼이 붙습니다.
@@ -74,6 +75,12 @@ Supabase 프로젝트 `stepi-quiz`에 연결돼 있고(`shared/supabase-config.j
 - 점수 = 두 얼굴 임베딩의 코사인 유사도를 `face.js`의 CURVE 표로 0~100에 펴서 표시. 서로 다른 사람끼리는 대체로 -0.1~0.3에 몰리므로 표를 조정해 체감 점수 폭을 바꿀 수 있다.
 - 부위별 설명(`parts.js`)은 MediaPipe Face Mesh(`games/lookalike/mp/`, 11MB) 468점 랜드마크로 얼굴형·눈매·코·입매·눈썹의 기하 특징을 재서 비교한다. 각 부위 점수(0~100)와 "특히 닮은 부위" 문장, 가장 다른 부위 한 줄을 만든다. 기준값·허용 오차는 parts.js의 PARTS 표.
 - 여러 명이 찍힌 사진은 가장 큰 얼굴을 쓴다. 옆모습·마스크·너무 작은 얼굴은 "얼굴 못 찾음"으로 표시되니 정면 사진으로 바꿀 것.
+
+## 공통점 찾기 사용법
+
+- 진행자: `games/common/host.html` (PIN) → 질문 목록(`질문 | 왼쪽 답 | 오른쪽 답`, 기본 17문항 내장) → **방 만들기** → QR 입장 → **첫 질문 시작** → 참가자가 폰에서 고르면 **결과 보기**(같은 답끼리 명단·비율) → **다음 질문** … → 마지막에 **가장 많이 겹친 짝 TOP 5**
+- 참가자 폰: 답 마감 후 자기 편 인원·이름이 보이고, 끝나면 "나와 가장 잘 맞는 사람 TOP 5"(일치 수·%)가 나온다. 점수 없음.
+- 테이블 cm_rooms / cm_players / cm_answers, RPC cm_create_room(pin, questions) / cm_join / cm_answer / cm_set_phase / cm_tally / cm_matches / cm_top_pairs
 
 ## 로컬 실행
 

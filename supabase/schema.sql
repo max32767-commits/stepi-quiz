@@ -419,3 +419,10 @@ alter policy ox_answers_insert on ox_answers with check (false);   -- 제출은 
 -- 6. 실시간 로또 (lotto_rooms / lotto_players + RPC) — 실제 정의는 Supabase migrations 참고
 --    lotto_create_room(pin,n1,n2,n3) → code / lotto_join / lotto_pick / lotto_set_phase / lotto_draw_next(서버 난수) / lotto_finish(순위 확정)
 -- ------------------------------------------------------------
+
+-- ---------------------------------------------------------------- 공통점 찾기 (cm_*)
+-- 테이블: cm_rooms(code, phase lobby|q|reveal|done, q_no, questions jsonb [{q,a,b}]) / cm_players(id, room_code, name) / cm_answers(room_code, q_no, player_id, choice a|b, unique)
+-- RPC: cm_create_room(pin, questions) → code / cm_join(code, name, pid) / cm_answer(code, q, pid, choice) (phase='q'·q_no 일치할 때만)
+--      cm_set_phase(pin, code, phase, q) (lobby면 답 초기화) / cm_tally(code, q) → {a:[names], b:[names], answered, players}
+--      cm_matches(code, pid, limit) → 나와 일치 수 많은 순 / cm_top_pairs(code, limit) → 전체 짝 중 일치 수 많은 순
+-- 전체 정의는 Supabase 마이그레이션 common_ground_game 참고

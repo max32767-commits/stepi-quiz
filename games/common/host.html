@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>공통점 찾기 — 진행자 화면</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="../ox/ox.css">
+<style>
+  .qbig{background:var(--navy);color:#fff;border-radius:24px;padding:34px 28px;text-align:center}
+  .qbig .no{font-size:14px;opacity:.75;font-weight:700;letter-spacing:.1em}
+  .qbig .q{font-size:clamp(28px,4.5vw,56px);font-weight:900;line-height:1.25;margin:8px 0 18px}
+  .qbig .opts{display:flex;gap:18px;justify-content:center;flex-wrap:wrap}
+  .qbig .opt{flex:1;min-width:200px;max-width:420px;border-radius:18px;padding:20px 16px;font-size:clamp(22px,3vw,36px);font-weight:900}
+  .qbig .opt.a{background:#2f80ed}.qbig .opt.b{background:#ED911A}
+  .qbig .cnt{font-size:16px;font-weight:700;opacity:.9;margin-top:6px}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+  @media(max-width:700px){.split{grid-template-columns:1fr}}
+  .side-box{border-radius:20px;padding:18px;min-height:200px;background:#e9f2ff;border:3px solid #2f80ed}
+  .side-box.b{background:#fff4e5;border-color:#ED911A}
+  .side-box h3{margin:0 0 6px;font-size:22px;display:flex;justify-content:space-between;align-items:baseline}
+  .side-box h3 small{font-size:14px;color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}.chips span{background:#fff;border-radius:999px;padding:6px 14px;font-weight:700;font-size:clamp(14px,1.6vw,20px);animation:pop .3s ease-out}
+  @keyframes pop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
+  .bar{height:14px;border-radius:7px;background:#ED911A;overflow:hidden;margin-top:14px;display:flex}
+  .bar i{display:block;height:100%;background:#2f80ed;transition:width .6s}
+  .pairs{display:grid;gap:10px;margin-top:14px;max-width:760px;margin-left:auto;margin-right:auto}
+  .pairs .p{display:flex;align-items:center;gap:14px;background:#f5f6fb;border-radius:14px;padding:12px 18px;font-size:clamp(18px,2.2vw,26px);font-weight:800}
+  .pairs .p .m{font-size:28px;width:40px;text-align:center}.pairs .p .r{margin-left:auto;color:var(--navy);font-variant-numeric:tabular-nums}
+  .pairs .p.top{background:#fff1e0}
+  .host textarea{min-height:220px;font-size:15px}
+</style>
+</head>
+<body class="host">
+<div class="topbar">
+  <a class="brand" href="../../"><img src="../../assets/logo-word.png" alt="STEPI" style="height:26px"><img src="../../assets/logo-dots.png" alt="" style="height:20px"> 랜덤 게임</a>
+  <span class="pill">🤝 공통점 찾기 · 진행자</span>
+</div>
+
+<section id="setup" style="margin-top:20px">
+  <div class="setup">
+    <div class="card">
+      <h2>질문 목록 <span class="muted" style="font-size:14px;font-weight:500">한 줄에 하나 · <code>질문 | 왼쪽 답 | 오른쪽 답</code></span></h2>
+      <textarea id="qs"></textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="btn sm ghost" id="defaults">기본 질문 다시 넣기</button><button class="btn sm ghost" id="shuffleQ">순서 섞기</button><span class="muted" id="qcount" style="align-self:center;font-size:13px"></span></div>
+    </div>
+    <div class="card">
+      <h2>진행 방법</h2>
+      <ol style="padding-left:20px;line-height:1.9">
+        <li><b>방 만들기</b> → QR로 참가자 입장 (이름 입력).</li>
+        <li>질문마다 참가자가 폰에서 둘 중 하나를 고르면, <b>결과 보기</b>로 같은 답끼리 모인 명단을 큰 화면에 띄웁니다.</li>
+        <li>다 끝나면 <b>가장 많이 겹친 짝 TOP 5</b>가 큰 화면에, 각자 폰에는 <b>나와 가장 잘 맞는 사람 TOP 5</b>가 나옵니다.</li>
+        <li>점수·승패 없음. 결과 화면에서 "둘이 왜 이렇게 잘 맞아요?" 한 마디씩 시키면 아이스브레이킹 완성.</li>
+      </ol>
+      <button class="btn orange" id="create" style="width:100%;margin-top:14px;font-size:20px;padding:16px">방 만들기</button>
+      <p class="muted" id="setup-msg" style="margin:10px 0 0"></p>
+    </div>
+  </div>
+</section>
+
+<section id="lobby" class="hidden">
+  <div class="card lobby">
+    <div class="muted">휴대폰으로 QR을 찍고 이름을 넣으세요</div>
+    <div class="big-code" id="lobby-code">0000</div>
+    <div id="lobby-qr" style="display:flex;justify-content:center;margin:16px 0"></div>
+    <div class="url" id="lobby-url"></div>
+    <div class="joined"><b id="lobby-n">0</b>명 참가 중</div>
+    <div class="players" id="lobby-players" style="justify-content:center"></div>
+    <div class="controls"><button class="btn orange" id="start" style="font-size:20px;padding:16px 32px">첫 질문 시작</button></div>
+  </div>
+</section>
+
+<section id="game" class="hidden">
+  <div class="stage">
+    <div>
+      <div class="qbig">
+        <div class="no" id="qno">Q1 / 10</div>
+        <div class="q" id="qtext"></div>
+        <div class="opts"><div class="opt a" id="optA"></div><div class="opt b" id="optB"></div></div>
+        <div class="cnt" id="cnt">0 / 0명 답함</div>
+      </div>
+      <div class="split hidden" id="split">
+        <div class="side-box"><h3><span id="hA"></span><small id="nA"></small></h3><div class="chips" id="cA"></div></div>
+        <div class="side-box b"><h3><span id="hB"></span><small id="nB"></small></h3><div class="chips" id="cB"></div></div>
+      </div>
+      <div class="bar hidden" id="bar"><i id="barA"></i></div>
+      <div class="controls">
+        <button class="btn orange" id="revealBtn" style="font-size:20px;padding:14px 32px">결과 보기</button>
+        <button class="btn" id="nextBtn" style="font-size:20px;padding:14px 32px">다음 질문 ▶</button>
+        <button class="btn ghost" id="finishBtn">끝내고 결과 보기</button>
+      </div>
+    </div>
+    <div class="side card">
+      <div class="muted" style="text-align:center">방 코드</div>
+      <div class="code" id="side-code"></div>
+      <div id="side-qr" style="display:flex;justify-content:center;margin:8px 0"></div>
+      <div style="display:flex;justify-content:space-between;margin-top:10px"><b>참가자</b><span class="muted" id="side-n"></span></div>
+      <div class="players" id="side-players"></div>
+    </div>
+  </div>
+</section>
+
+<section id="result" class="hidden">
+  <div class="card winner">
+    <div class="muted">🤝 가장 많이 겹친 짝</div>
+    <div class="pairs" id="pairs"></div>
+    <p class="muted" style="margin-top:16px">각자 폰에서 "나와 가장 잘 맞는 사람 TOP 5"를 확인하세요</p>
+    <div class="controls">
+      <button class="btn ghost" id="again">같은 참가자로 다시</button>
+      <button class="btn" id="newroom">새 방 만들기</button>
+    </div>
+  </div>
+</section>
+<div class="confetti" id="confetti"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../../shared/supabase-config.js"></script>
+<script src="../../shared/supabase-client.js"></script>
+<script src="../../shared/pin.js"></script>
+<script>
+if (!window.sb) throw new Error('Supabase 설정 없음');
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const err = e => (e.message || '').replace(/^.*?: /, '');
+const DEFAULTS = `아침형 인간? 저녁형 인간? | 아침형 | 저녁형
+민트초코 | 좋아 | 싫어
+탕수육은 | 부먹 | 찍먹
+휴가는 | 산 | 바다
+하루의 시작은 | 커피 | 차
+더 좋은 계절 | 여름 | 겨울
+여행 스타일 | 계획형 | 즉흥형
+혼밥 | 잘 함 | 싫어
+반려동물이라면 | 강아지 | 고양이
+회식 1차는 | 소주 | 맥주
+주말엔 | 집콕 | 밖으로
+영화는 | 영화관에서 | 넷플릭스로
+중국집 가면 | 짜장 | 짬뽕
+카톡 답장은 | 바로바로 | 나중에 몰아서
+운동 | 좋아 | 싫어
+출장은 | 설렘 | 피곤
+업무 메모는 | 손글씨 | 디지털`;
+let PIN = null, code = '', room = null, players = [], questions = [], channel = null, pollTimer = null;
+STEPI_PIN.require().then(p => { PIN = p; });
+try { $('qs').value = localStorage.getItem('cm:qs') || DEFAULTS; } catch (e) { $('qs').value = DEFAULTS; }
+function parseQs() { return $('qs').value.split('\n').map(l => l.split('|').map(s => s.trim())).filter(a => a[0]).map(a => ({ q: a[0], a: a[1] || 'O', b: a[2] || 'X' })); }
+function countQ() { $('qcount').textContent = parseQs().length + '문항'; }
+$('qs').oninput = () => { countQ(); try { localStorage.setItem('cm:qs', $('qs').value); } catch (e) {} };
+$('defaults').onclick = () => { $('qs').value = DEFAULTS; $('qs').dispatchEvent(new Event('input')); };
+$('shuffleQ').onclick = () => { const l = $('qs').value.split('\n').filter(x => x.trim()); for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; } $('qs').value = l.join('\n'); $('qs').dispatchEvent(new Event('input')); };
+countQ();
+
+$('create').onclick = async () => {
+  if (!PIN) return;
+  questions = parseQs(); if (!questions.length) return $('setup-msg').textContent = '질문을 한 줄 이상 넣으세요.';
+  $('create').disabled = true; $('setup-msg').textContent = '방을 만드는 중…';
+  const { data, error } = await sb.rpc('cm_create_room', { p_pin: PIN, p_questions: questions });
+  $('create').disabled = false;
+  if (error) { $('setup-msg').textContent = err(error); if (/PIN/.test(error.message)) { STEPI_PIN.clear(); PIN = await STEPI_PIN.require(); } return; }
+  code = data; enterLobby();
+};
+function playUrl() { return location.href.replace(/host\.html.*$/, 'play.html?room=' + code); }
+function qr(el, size) { el.innerHTML = ''; new QRCode(el, { text: playUrl(), width: size, height: size, colorDark: '#373282' }); }
+function enterLobby() {
+  show('lobby'); $('lobby-code').textContent = code; $('side-code').textContent = code; $('lobby-url').textContent = playUrl();
+  qr($('lobby-qr'), 220); qr($('side-qr'), 140); subscribe();
+}
+function subscribe() {
+  if (channel) sb.removeChannel(channel);
+  channel = sb.channel('cm-' + code)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'cm_players', filter: 'room_code=eq.' + code }, loadPlayers)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'cm_answers', filter: 'room_code=eq.' + code }, () => loadTally())
+    .subscribe();
+  loadPlayers(); clearInterval(pollTimer); pollTimer = setInterval(() => { loadPlayers(); if (room && room.phase !== 'lobby') loadTally(); }, 3000);
+}
+async function loadPlayers() {
+  const [{ data: ps }, { data: r }] = await Promise.all([sb.from('cm_players').select('*').eq('room_code', code).order('joined_at'), sb.from('cm_rooms').select('*').eq('code', code).maybeSingle()]);
+  players = ps || []; if (r) room = r;
+  $('lobby-players').innerHTML = $('side-players').innerHTML = players.map(p => `<span>${esc(p.name)}</span>`).join('');
+  $('lobby-n').textContent = players.length; $('side-n').textContent = players.length + '명';
+}
+async function rpc(fn, args) {
+  const { data, error } = await sb.rpc(fn, { p_pin: PIN, p_code: code, ...args });
+  if (error) { alert(err(error)); if (/PIN/.test(error.message)) { STEPI_PIN.clear(); PIN = await STEPI_PIN.require(); } throw error; }
+  return data;
+}
+
+// ---- 진행 ----
+let qi = 0, revealed = false, lastTally = null;
+$('start').onclick = () => { show('game'); goQ(0); };
+async function goQ(i) {
+  qi = i; revealed = false; lastTally = null;
+  await rpc('cm_set_phase', { p_phase: 'q', p_q: i });
+  const q = questions[i];
+  $('qno').textContent = `Q${i + 1} / ${questions.length}`; $('qtext').textContent = q.q; $('optA').textContent = q.a; $('optB').textContent = q.b;
+  $('split').classList.add('hidden'); $('bar').classList.add('hidden'); $('cnt').textContent = `0 / ${players.length}명 답함`;
+  $('revealBtn').disabled = false; $('nextBtn').textContent = i + 1 < questions.length ? '다음 질문 ▶' : '마지막 → 결과 보기';
+  loadTally();
+}
+async function loadTally() {
+  if (!room || room.phase === 'lobby' || room.phase === 'done') return;
+  const { data } = await sb.rpc('cm_tally', { p_code: code, p_q: qi }); if (!data) return;
+  lastTally = data; $('cnt').textContent = `${data.answered} / ${Math.max(data.players, players.length)}명 답함`;
+  if (revealed) renderSplit(data);
+}
+function renderSplit(t) {
+  const q = questions[qi], na = t.a.length, nb = t.b.length, tot = na + nb || 1;
+  $('hA').textContent = q.a; $('hB').textContent = q.b; $('nA').textContent = `${na}명 (${Math.round(na / tot * 100)}%)`; $('nB').textContent = `${nb}명 (${Math.round(nb / tot * 100)}%)`;
+  $('cA').innerHTML = t.a.map(n => `<span>${esc(n)}</span>`).join(''); $('cB').innerHTML = t.b.map(n => `<span>${esc(n)}</span>`).join('');
+  $('split').classList.remove('hidden'); $('bar').classList.remove('hidden'); $('barA').style.width = (na / tot * 100) + '%';
+}
+$('revealBtn').onclick = async () => { revealed = true; await rpc('cm_set_phase', { p_phase: 'reveal' }); $('revealBtn').disabled = true; if (lastTally) renderSplit(lastTally); else loadTally(); };
+$('nextBtn').onclick = () => { if (qi + 1 < questions.length) goQ(qi + 1); else finish(); };
+$('finishBtn').onclick = () => { if (confirm('지금까지의 답으로 결과를 볼까요?')) finish(); };
+async function finish() {
+  await rpc('cm_set_phase', { p_phase: 'done' });
+  const { data } = await sb.rpc('cm_top_pairs', { p_code: code, p_limit: 5 });
+  show('result');
+  const medals = ['🥇', '🥈', '🥉', '4', '5'];
+  $('pairs').innerHTML = (data || []).length ? data.map((p, i) => `<div class="p ${i === 0 ? 'top' : ''}"><span class="m">${medals[i]}</span>${esc(p.a)} <span style="color:var(--orange)">&</span> ${esc(p.b)}<span class="r">${p.same}/${p.total} 일치</span></div>`).join('') : '<p class="muted">답이 모자라 짝을 못 찾았어요</p>';
+  confetti();
+}
+$('again').onclick = async () => { await rpc('cm_set_phase', { p_phase: 'lobby' }); enterLobby(); };
+$('newroom').onclick = () => location.reload();
+function show(id) { ['setup', 'lobby', 'game', 'result'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
+function confetti() {
+  const c = $('confetti'); c.innerHTML = ''; const colors = ['#373282', '#ED911A', '#1f8a5b', '#d6453d', '#f5c518', '#6c5ce7'];
+  for (let i = 0; i < 90; i++) { const s = document.createElement('i'); s.style.cssText = `left:${Math.random() * 100}vw;background:${colors[i % 6]};animation-delay:${Math.random() * 1.5}s;transform:rotate(${Math.random() * 360}deg)`; c.appendChild(s); }
+  setTimeout(() => c.innerHTML = '', 5000);
+}
+document.addEventListener('keydown', e => { if (e.target.matches('input,textarea,select') || $('game').classList.contains('hidden')) return; if (e.key === 'Enter' || e.code === 'Space') { e.preventDefault(); if (!revealed) $('revealBtn').click(); else $('nextBtn').click(); } });
+</script>
+<script src="../../shared/home.js"></script>
+</body>
+</html>
