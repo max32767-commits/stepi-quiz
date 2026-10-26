@@ -198,14 +198,19 @@ $("guess-form").onsubmit = async e => {
 };
 
 // ---- 표 ----
-function render() {
+// 50명이 수백~천 개를 추측하면 매 추측마다 전체를 다시 그리는 비용이 커지므로, 150ms 에 한 번만 그리고 상위 200개만 표시한다
+let renderTimer = null;
+function render() { if (renderTimer) return; renderTimer = setTimeout(() => { renderTimer = null; renderNow(); }, 150); }
+const MAX_ROWS = 200;
+function renderNow() {
   const mineOnly = $("only-mine").checked;
   const all = guesses.map((g, i) => ({ ...g, no: i + 1 }));
   let rows = mineOnly ? all.filter(g => g.player === me) : all;
   const latest = rows.find(g => g.id === latestId);
   rows = rows.filter(g => g.id !== latestId).sort((a, b) => b.similarity - a.similarity);
+  const hidden = Math.max(0, rows.length - MAX_ROWS); rows = rows.slice(0, MAX_ROWS);
   if (latest) rows.unshift(latest);
-  $("tbody").innerHTML = rows.map(g => `
+  $("tbody").innerHTML = (hidden ? `<tr><td colspan="6" class="n" style="color:#999">유사도 상위 ${MAX_ROWS}개만 표시 · 나머지 ${hidden}개 생략</td></tr>` : '') + rows.map(g => `
     <tr class="${g.id === latestId ? "latest" : ""} ${g.rank === 0 ? "hit" : ""}">
       <td class="n">${g.no}</td>
       <td class="p">${esc(g.player)}</td>
