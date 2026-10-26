@@ -31,16 +31,17 @@ window.STEPI_PIN = (function () {
         if (data === 'setup') { msg.textContent = 'PIN 미설정 — 슈퍼관리자 페이지에서 설정하세요'; return; }
         if (!data) { msg.textContent = 'PIN이 틀렸어요'; inp.value = ''; inp.focus(); return; }
         try { sessionStorage.setItem(KEY, pin); } catch (e) {}
-        ov.remove(); resolve(pin);
+        ov.remove(); unlock(); resolve(pin);
       }
       btn.onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
     });
   }
+  function unlock() { if (window.STEPI_UNLOCK) window.STEPI_UNLOCK(); }
   function base() { const s = document.querySelector('script[src*="shared/pin.js"]'); return s ? s.src.replace(/shared\/pin\.js.*$/, '') : '../../'; }
   return {
     async require() {
       let pin = null; try { pin = sessionStorage.getItem(KEY); } catch (e) {}
-      if (pin) { const { data } = await sb.rpc('verify_pin', { p_pin: pin }); if (data === 'admin' || data === 'super') return pin; }
+      if (pin) { const { data } = await sb.rpc('verify_pin', { p_pin: pin }); if (data === 'admin' || data === 'super') { unlock(); return pin; } }
       const { data: role } = await sb.rpc('verify_pin', { p_pin: null });
       return modal(role);
     },
