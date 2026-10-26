@@ -309,6 +309,13 @@
   const nameOf = m => el.unit.value === 'participant' ? m.name : m.label;
 
   // 다음 도착 한 번으로 당첨이 확정되는 상황이면, 결승에 가장 가까운 후보 구슬을 돌려준다(슬로모션·줌인용)
+  // 결승 구간 안에서 마지막 한 자리를 다투는 구슬들(선두 포함, 최대 3개) — 특정 구슬을 '예정 당첨자'처럼 보이게 하지 않기 위해 함께 보여 준다
+  function contenders(lead) {
+    const race = S.race, byP = el.unit.value === 'participant', u = rankedUnits();
+    const seen = byP ? new Set(u.order.map(m => m.pid)) : null, taken = new Set();
+    return race.marbles.filter(m => !m.done && !(byP && seen.has(m.pid)) && m.y > race.map.finalY)
+      .sort((a, b) => b.y - a.y).filter(m => { const k = byP ? m.pid : m.id; if (taken.has(k)) return false; taken.add(k); return true; }).slice(0, 3);
+  }
   function criticalMarble() {
     const race = S.race;
     if (!race || race.state !== 'running' || S.decided) return null;
@@ -493,11 +500,12 @@
       if (!crit && S.crit) updateHud(true);
       S.crit = crit;
       renderer.focusMarble = el.reduce.checked ? null : crit;
+      renderer.contenders = crit ? contenders(crit) : null;
       // 결승 슬로모션(재생 속도만 바뀌고 결과는 같음): 결승 구간 입구 0.5배 → 결승선 앞 0.22배까지 점점 느려진다
       let slow = 1;
       if (crit && !el.reduce.checked) {
         const k = Math.max(0, Math.min(1, (crit.y - race.map.finalY) / (race.map.goalY - race.map.finalY)));
-        slow = 0.5 - 0.28 * k;
+        slow = 0.6 - 0.3 * k;
         // 심장 박동: 결승선에 가까울수록 빨라진다
         if (now - S.heartAt > 950 - 600 * k) { S.heartAt = now; Sound.play('heart', 10 + 20 * k); renderer.pulse = 1; }
       }
@@ -543,7 +551,10 @@
   el.start.addEventListener('click', start);
   el.pause.addEventListener('click', togglePause);
   el.skip.addEventListener('click', skipToResult);
-  el.shuffle.addEventListener('click', () => { prepare({ newSeed: true }); toast('출발 배치를 새로 섞었습니다.'); });
+  el.shuffle.addEventListener('click', () => {
+    const others = MAPS.filter(m => m.id !== el.map.value), pick = others[Math.floor(Math.random() * others.length)] || MAPS[0];
+    el.map.value = pick.id; prepare({ newSeed: true }); saveSettings(); toast(`맵: ${pick.name} · 출발 배치도 새로 섞었습니다.`);
+  });
   el.reset.addEventListener('click', () => prepare({ newSeed: true }));
   $('#againBtn').addEventListener('click', () => { prepare({ newSeed: true }); el.start.focus(); });
   $('#resultClose').addEventListener('click', () => { hideResult(); el.reset.focus(); });

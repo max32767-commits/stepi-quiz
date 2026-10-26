@@ -155,7 +155,7 @@
     <section class="card panel controls" aria-label="실행">
       <button id="startBtn" class="btn primary lg" type="button"><svg class="ic"><use href="#i-play"/></svg><span>시작</span></button>
       <div class="row">
-        <button id="shuffleBtn" class="btn" type="button" title="구슬 출발 배치를 새 시드로 다시 섞습니다"><svg class="ic"><use href="#i-shuffle"/></svg>셔플</button>
+        <button id="shuffleBtn" class="btn" type="button" title="맵을 무작위로 바꾸고 출발 배치도 새로 섞습니다"><svg class="ic"><use href="#i-shuffle"/></svg>랜덤 맵</button>
         <button id="pauseBtn" class="btn" type="button" disabled><svg class="ic"><use href="#i-pause"/></svg><span>일시정지</span></button>
       </div>
       <div class="row">
@@ -196,14 +196,14 @@
       <ol>
         <li>참가자 이름을 입력합니다. <code>이름*3</code>처럼 쓰면 그 사람의 구슬이 3개가 됩니다.</li>
         <li>설정에서 맵과 당첨 방식(1등·꼴등·N번째·N명)을 고릅니다.</li>
-        <li><b>시작</b>을 누르면 출발 문이 열립니다. <b>셔플</b>은 출발 배치를 다시 섞습니다.</li>
+        <li><b>시작</b>을 누르면 출발 문이 열립니다. <b>랜덤 맵</b>은 맵을 무작위로 바꾸고 출발 배치도 새로 섞습니다.</li>
         <li>당첨이 확정되면 결과 창이 뜨고 기록에 저장됩니다.</li>
       </ol>
     </section>
     <section>
       <h3>맵과 단축키</h3>
       <ul id="mapGuide"></ul>
-      <p class="help">움직이는 장애물: <b style="color:#10b3a3">청록</b> 슬라이더 · <b style="color:#ff4f86">분홍</b> 플리퍼 · <b style="color:#8b5cf6">보라</b> 포털(순간이동) · <b style="color:#ED911A">주황</b> 결승 구간 장애물(흔들 다리·역전 범퍼·결승 회전문 — 모든 맵 공통) + 맵마다 다른 <b>골문 장애물</b>(클래식: 고속 회전 톱니 · 지그재그: 트랩도어 · 풍차: 골문 플리퍼 · 산맥: 되돌림 포털). 마지막 한 자리를 다투는 구슬이 붉은 선을 넘으면 슬로모션·확대·심장 박동이 시작됩니다.</p>
+      <p class="help">움직이는 장애물: <b style="color:#10b3a3">청록</b> 슬라이더 · <b style="color:#ff4f86">분홍</b> 플리퍼 · <b style="color:#ED911A">주황</b> 결승 구간 장애물(흔들 다리·역전 범퍼·결승 회전문 — 모든 맵 공통) + 맵마다 다른 <b>골문 장애물</b>(클래식: 고속 회전 톱니 · 지그재그: 트랩도어 · 풍차: 골문 플리퍼 · 산맥: 느린 회전문). 마지막 한 자리를 다투는 구슬이 붉은 선을 넘으면 슬로모션·확대·심장 박동이 시작됩니다.</p>
       <p class="help"><kbd>Space</kbd> 시작·일시정지 · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 입력창에서 시작 · 맵 위에서 휠·드래그로 이동</p>
     </section>
   </div>

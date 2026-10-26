@@ -78,10 +78,10 @@
     this.rotor(W / 2, H - 4.4, 3.6, 1.45, 0.3);
     this.rotors[this.rotors.length - 1].final = true;
     // 막판 변수 ④ 골문 장애물: 결승 통로(폭 2.3) 안, 결승선 바로 위에서 마지막 순간에 순위를 바꾼다. 맵마다 다름
-    if (gate === 'spinner') { this.rotor(W / 2, H - 1.1, 1.5, 6.5, 1.0); this.rotors[this.rotors.length - 1].final = true; this.rotors[this.rotors.length - 1].t = 0.14; }
-    else if (gate === 'trapdoor') { this.slider(W / 2 - 0.55, H - 0.9, 1.1, 1.25, 1.15, 0); this.movers[this.movers.length - 1].final = true; }
-    else if (gate === 'flipper') { this.flipper(W / 2 - 1.15, H - 0.6, 1.4, -0.25, -1.0, 1.35, 0); this.movers[this.movers.length - 1].final = true; }
-    else if (gate === 'warp') { this.portal(W / 2, H - 1.3, W / 2, H - 9.5, 0.4); this.portals[this.portals.length - 1].final = true; }   // 골문 한가운데를 지나면 깔때기 위로 되돌아간다(가장자리로 지나면 통과)
+    if (gate === 'spinner') { this.rotor(W / 2, H - 1.1, 1.5, 8.5, 1.0); this.rotors[this.rotors.length - 1].final = true; this.rotors[this.rotors.length - 1].t = 0.14; }
+    else if (gate === 'trapdoor') { this.slider(W / 2 - 0.55, H - 0.9, 1.1, 1.25, 0.95, 0); this.movers[this.movers.length - 1].final = true; }
+    else if (gate === 'flipper') { this.flipper(W / 2 - 1.15, H - 0.6, 1.4, -0.25, -1.0, 1.1, 0); this.movers[this.movers.length - 1].final = true; }
+    else if (gate === 'door') { this.rotor(W / 2, H - 1.1, 2.0, 2.6, 0.0); this.rotors[this.rotors.length - 1].final = true; this.rotors[this.rotors.length - 1].t = 0.14; }   // 천천히 도는 회전문: 가로로 누우면 거의 막힘
     this.goalY = H;
     return this;
   };
@@ -108,12 +108,9 @@
           const off = row % 2 ? 1.3 : 0;
           for (let x = 1.4 + off; x < W - 1; x += 2.6) {
             if (row % 8 === 3 && Math.abs(x - W / 2) < 1.6) continue;
-            if (row === 13 && (x < 3.5 || x > W - 3.5)) continue;   // 포털 자리
-            m.peg(x, y);
+              m.peg(x, y);
           }
         }
-        m.portal(1.6, portalY, W / 2, 81.2);      // 행운의 포털(아래로)
-        m.portal(W - 1.6, portalY, W / 2, 24.8);  // 함정 포털(위로)
         // 결승 전 플리퍼
         m.flipper(1.2, H - 13.5, 6, 0.55, -0.75, 1.9, 0);
         m.flipper(W - 1.2, H - 13.5, 6, Math.PI - 0.55, 0.75, 1.9, Math.PI);
@@ -136,8 +133,6 @@
           if (((y - 10) / 12) % 2 === 1) m.slider(W / 2, y + 10.4, 4, 6.5, 2.8, rng() * 6);
           left = !left;
         }
-        // 2번째 경사로 끝 → 6번째 경사로 위로 순간이동
-        m.portal(9, 25.2, W / 2, 71);
         m.flipper(3, H - 12.5, 5.5, 0.45, -0.7, 2.3, 0);
         m.flipper(W - 3, H - 12.5, 5.5, Math.PI - 0.45, 0.7, 2.3, Math.PI);
         return m.finish('trapdoor');
@@ -156,7 +151,6 @@
           if (r % 3 === 1) { m.bumper(2.4, y + 4.5, 0.9); m.bumper(W - 2.4, y + 4.5, 0.9); }   // 벽에 붙이면 구슬이 끼어 멈추므로 벽에서 띄운다
           if (r % 3 === 2) m.slider(W / 2, y + 4.9, 5, 7.5, 3 + rng(), rng() * 6);
         }
-        m.portal(W / 2, 11 + 9 * 4 + 4.9, 3, 11 + 9 * 9 + 6.4);
         m.flipper(1.2, H - 13, 6, 0.55, -0.75, 1.7, 0);
         m.flipper(W - 1.2, H - 13, 6, Math.PI - 0.55, 0.75, 1.7, Math.PI);
         return m.finish('flipper');
@@ -177,10 +171,9 @@
           for (let i = 0; i < 3; i++) m.peg(1.5 + rng() * (W - 3), y + 5.6 + rng(), 0.24);
           if (r % 3 === 2) m.slider(W / 2, y + 6.3, 4.5, 8, 2.6 + rng(), rng() * 6);
         }
-        m.portal(W * 0.5, 10 + 7.5 * 3 + 3.8, W * 0.22, 10 + 7.5 * 10 - 1.2);
         m.flipper(1.2, H - 12.5, 6, 0.5, -0.75, 2, 0);
         m.flipper(W - 1.2, H - 12.5, 6, Math.PI - 0.5, 0.75, 2, Math.PI);
-        return m.finish('warp');
+        return m.finish('door');
       }
     }
   ];

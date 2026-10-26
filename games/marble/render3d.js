@@ -561,7 +561,7 @@
       const vg = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75);
       vg.addColorStop(0, 'rgba(255,40,40,0)'); vg.addColorStop(1, `rgba(255,40,40,${0.22 + 0.3 * (this.pulse || 0)})`);
       ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
-      const left = Math.max(0, race.map.goalY - focus.y), txt = `🔥 마지막 한 자리  ${focus.label}  · 결승까지 ${left.toFixed(1)}m`;
+      const left = Math.max(0, race.map.goalY - focus.y), names = (this.contenders && this.contenders.length ? this.contenders : [focus]).map(m => m.label).join('  vs  '), txt = `🔥 마지막 한 자리  ${names}  · 결승까지 ${left.toFixed(1)}m`;
       const fs = Math.max(14, Math.min(22, w / 32)); ctx.font = `800 ${fs}px Pretendard, "Noto Sans KR", system-ui, sans-serif`;
       const tw = ctx.measureText(txt).width + fs * 1.6, bx = (w - tw) / 2, by = h - fs * 2 - 18;
       ctx.fillStyle = `rgba(190,20,30,${0.85 + 0.15 * (this.pulse || 0)})`;
