@@ -430,4 +430,6 @@ alter policy ox_answers_insert on ox_answers with check (false);   -- 제출은 
 -- 꼬맨틀 성능: words_embedding_idx(HNSW, 201MB)가 shared_buffers(224MB)에서 밀려나면 첫 검색이 10초+ → 타임아웃.
 --   warm_up() : pg_prewarm 으로 인덱스를 미리 읽어 둠 (host.html 이 열릴 때·4분마다 호출), start_round 도 벤치마크 전에 prewarm
 --   anon 역할 statement_timeout 45s (기본 8s)
---   words_embedding_half_idx : halfvec(300) HNSW (약 절반 크기) — 있으면 make_guess/round_benchmarks 가 이걸 사용
+--   words_h(word, emb halfvec(300)) 84MB + words_h_emb_idx(HNSW halfvec) 113MB : 검색 전용. make_guess/round_benchmarks 는 이 테이블만 읽고,
+--   words(float 벡터 169MB)는 후보 추첨(candidate)·진행자 단어 찾기에만 쓴다. warm_up() 은 words_h 힙+인덱스를 prewarm.
+--   부하 테스트: 200회 연속 추측 avg 16ms / p95 17ms / max 29ms (캐시 적중 시). 50명이 3초마다 추측해도 CPU 30% 수준.
