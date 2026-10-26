@@ -9,6 +9,7 @@
 <style>
   .wrap{max-width:1380px;margin:0 auto;padding:20px;display:grid;grid-template-columns:340px minmax(0,1fr);gap:20px;align-items:start}
   @media(max-width:900px){.wrap{grid-template-columns:1fr}}
+  body.present .wrap{grid-template-columns:1fr;max-width:1500px}body.present .wrap>aside{display:none!important}body.present .board{max-height:80vh;margin:0 auto}
   .card h2{font-size:17px;margin:0 0 10px}
   .field{display:grid;gap:5px;margin:10px 0}.field label{font-size:13px;color:var(--muted)}
   select,input[type=number]{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
@@ -16,7 +17,7 @@
   .hint{font-size:12px;color:var(--muted);line-height:1.5}
   .drop{border:2px dashed var(--line);border-radius:12px;padding:16px;text-align:center;color:var(--muted);cursor:pointer;font-size:14px}.drop.over{border-color:var(--orange);color:var(--orange)}.drop input{display:none}
   .list{display:grid;gap:6px;margin-top:10px;max-height:260px;overflow:auto}
-  .item{display:grid;grid-template-columns:44px 1fr auto auto;gap:8px;align-items:center;padding:4px 6px;border-radius:10px;background:#f5f6fb;cursor:pointer;font-size:14px}
+  .item{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:4px 6px;border-radius:10px;background:#f5f6fb;cursor:pointer;font-size:14px}
   .item.cur{background:#fff1e0;outline:2px solid var(--orange)}
   .item img{width:44px;height:44px;object-fit:cover;border-radius:6px;background:#ddd}
   .item .nm{font-weight:700;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -51,13 +52,12 @@
   <aside style="display:grid;gap:16px">
     <div class="card">
       <h2>1. 사진 준비</h2>
-      <div class="drop" id="drop"><input type="file" id="file" accept="image/*,.html,.htm" multiple>📷 사진을 고르거나 끌어다 놓으세요<br><span class="hint">파일 이름이 정답이 됩니다 (예: 차은우.jpg). 예전 행사용 HTML 파일을 넣으면 그 안의 사진을 불러옵니다.</span></div>
+      <div class="drop" id="drop"><input type="file" id="file" accept="image/*,.html,.htm" multiple>📷 사진을 고르거나 끌어다 놓으세요<br><span class="hint">파일 이름이 정답이 됩니다 (예: 차은우.jpg). 예전 행사용 HTML 파일을 넣으면 그 안의 사진을 불러옵니다.<br>목록에는 정답·사진이 보이지 않아요 (큰 화면 노출 방지).</span></div>
       <div class="list" id="list"></div>
       <div class="hint" id="count" style="margin-top:8px">아직 사진이 없어요.</div>
+      <label class="hint" style="display:flex;align-items:center;gap:6px;margin-top:8px;cursor:pointer"><input type="checkbox" id="peek"> 목록에 정답 표시 (확인용 — 큰 화면에 띄우기 전에 끄세요)</label>
       <div class="btnrow"><button class="btn sm ghost" id="shuffle">순서 섞기</button><button class="btn sm ghost" id="clearAll">모두 지우기</button></div>
-      <div class="sep"></div>
-      <button class="btn orange" id="save" style="width:100%">💾 사진 포함 HTML 저장</button>
-      <div class="hint" style="margin-top:6px">사진이 들어간 HTML 한 파일로 저장해 두면 행사 당일 인터넷 없이도 파일만 열어 바로 진행할 수 있어요. 사진은 이 브라우저 안에서만 처리되고 서버로 올라가지 않습니다.</div>
+      <div class="hint" style="margin-top:8px">사진은 이 브라우저 안에서만 처리되고 서버로 올라가지 않습니다. 새로고침하면 다시 넣어야 해요.</div>
     </div>
     <div class="card">
       <h2>2. 가림 방식</h2>
@@ -77,7 +77,7 @@
   <section class="card">
     <div class="stage-top">
       <div><div class="eyebrow">EYE-SIGHT CONTEST</div><h1 id="title">문제 1</h1></div>
-      <span class="pill" id="progress">0 / 0</span>
+      <div style="display:flex;gap:8px;align-items:center"><span class="pill" id="progress">0 / 0</span><button class="btn sm ghost" id="present">🖥️ 진행 화면 (설정 숨기기)</button></div>
     </div>
     <div class="board" id="board"><div class="empty">왼쪽에서 사진을 추가하면 여기에 나옵니다.</div></div>
     <div class="status"><div class="steps" id="steps"></div><span id="stat">대기 중</span></div>
@@ -92,14 +92,12 @@
   </section>
 </div>
 
-<script id="embedded" type="application/json">[]</script>
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let photos = [], cur = 0, step = 0, solved = false, tileOrder = [], tileReveal = [];
 
 // ---- 사진 불러오기 ----
-try { const e = JSON.parse($('embedded').textContent); if (Array.isArray(e)) photos = e.filter(x => x && x.name && typeof x.url === 'string' && x.url.startsWith('data:image/')); } catch (e) {}
 function readImg(f) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res({ name: f.name.replace(/\.[^.]+$/, ''), url: r.result }); r.onerror = () => rej(new Error('사진을 읽지 못했어요')); r.readAsDataURL(f); }); }
 function readHtml(f) {   // 예전 행사용 HTML(embeddedEyeData / embedded) 에서 사진 추출
   return new Promise(res => { const r = new FileReader(); r.onload = () => {
@@ -124,28 +122,17 @@ $('file').onchange = e => { addFiles(e.target.files); e.target.value = ''; };
 ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
 ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
 drop.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+$('peek').onchange = renderList;
 $('shuffle').onclick = () => { for (let i = photos.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [photos[i], photos[j]] = [photos[j], photos[i]]; } cur = 0; renderList(); resetQ(); };
 $('clearAll').onclick = () => { if (photos.length && confirm('사진을 모두 지울까요?')) { photos = []; cur = 0; renderList(); resetQ(); } };
 
 function renderList() {
-  $('list').innerHTML = photos.map((p, i) => `<div class="item ${i === cur ? 'cur' : ''}" data-i="${i}"><img src="${p.url}" alt=""><div><div class="nm">문제 ${i + 1}</div><div class="ans">정답: ${esc(p.name)}</div></div><button class="x" data-del="${i}" title="삭제">✕</button></div>`).join('');
+  $('list').innerHTML = photos.map((p, i) => `<div class="item ${i === cur ? 'cur' : ''}" data-i="${i}"><div><div class="nm">문제 ${i + 1}</div><div class="ans">${$('peek').checked ? '정답: ' + esc(p.name) : '정답 숨김'}</div></div><button class="x" data-del="${i}" title="삭제">✕</button></div>`).join('');
   $('count').textContent = photos.length ? `${photos.length}장 준비됨 · 목록을 누르면 그 문제로 이동` : '아직 사진이 없어요.';
 }
 $('list').onclick = e => {
   const d = e.target.closest('[data-del]'); if (d) { photos.splice(+d.dataset.del, 1); cur = Math.min(cur, Math.max(0, photos.length - 1)); renderList(); resetQ(); return; }
   const it = e.target.closest('.item'); if (it) { cur = +it.dataset.i; renderList(); resetQ(); }
-};
-
-// ---- 사진 포함 HTML 저장 ----
-$('save').onclick = () => {
-  if (!photos.length) return alert('먼저 사진을 추가하세요.');
-  const doc = document.documentElement.cloneNode(true);
-  doc.querySelector('#embedded').textContent = JSON.stringify(photos.map(({ name, url }) => ({ name, url }))).replace(/</g, '\\u003c');
-  doc.querySelectorAll('[src],[href]').forEach(el => { const a = el.getAttribute('src') ? 'src' : 'href'; const v = el.getAttribute(a); if (v && !/^(data:|https?:|#)/.test(v)) el.setAttribute(a, new URL(v, location.href).href); });
-  doc.querySelectorAll('.list .item').forEach(el => el.remove());
-  const blob = new Blob(['<!doctype html>\n' + doc.outerHTML], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `눈썰미콘테스트_${photos.length}문제.html`; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
 };
 
 // ---- 진행 ----
@@ -191,6 +178,7 @@ function reveal() { if (!photos[cur] || solved) return; step = Math.min(maxStep(
 function answer() { if (!photos[cur]) return; solved = true; render(); }
 function go(d) { if (!photos.length) return; cur = (cur + d + photos.length) % photos.length; renderList(); resetQ(); }
 $('reveal').onclick = reveal; $('answer').onclick = answer; $('reset').onclick = resetQ;
+$('present').onclick = () => { document.body.classList.toggle('present'); $('present').textContent = document.body.classList.contains('present') ? '⚙️ 설정 보이기' : '🖥️ 진행 화면 (설정 숨기기)'; };
 $('prev').onclick = () => go(-1); $('next').onclick = () => go(1);
 document.addEventListener('keydown', e => {
   if (e.target.matches('input,select,textarea')) return;
