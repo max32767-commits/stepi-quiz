@@ -433,3 +433,5 @@ alter policy ox_answers_insert on ox_answers with check (false);   -- 제출은 
 --   words_h(word, emb halfvec(300)) 84MB + words_h_emb_idx(HNSW halfvec) 113MB : 검색 전용. make_guess/round_benchmarks 는 이 테이블만 읽고,
 --   words(float 벡터 169MB)는 후보 추첨(candidate)·진행자 단어 찾기에만 쓴다. warm_up() 은 words_h 힙+인덱스를 prewarm.
 --   부하 테스트: 200회 연속 추측 avg 16ms / p95 17ms / max 29ms (캐시 적중 시). 50명이 3초마다 추측해도 CPU 30% 수준.
+
+-- 스피드 퀴즈 채점 정규화 ox_norm(t): 소문자화 + 공백·문장부호·기호 제거(한글/영문/숫자만 남김) + 전각 영숫자 → 반각. 정답 후보(/ 구분)와 제출 답 양쪽에 적용.
