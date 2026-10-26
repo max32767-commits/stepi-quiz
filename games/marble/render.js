@@ -142,7 +142,7 @@
         ctx.beginPath(); ctx.moveTo(r.cx, r.cy); ctx.arc(r.cx, r.cy, L + r.t * 0.5, a0, a0 + dir * span * k / 3, dir < 0); ctx.closePath(); ctx.fill();
       }
     });
-    drawBar(ctx, r.cx - c * L, r.cy - sn * L, r.cx + c * L, r.cy + sn * L, r.t, [C.rotorA, C.rotorB, C.rotorC], { stripes: true, glow: C.neon ? 'rgba(91,128,255,0.18)' : null });
+    drawBar(ctx, r.cx - c * L, r.cy - sn * L, r.cx + c * L, r.cy + sn * L, r.t, r.final ? ['#ffc46b', '#ED911A', '#b35f05'] : [C.rotorA, C.rotorB, C.rotorC], { stripes: true, glow: r.final ? 'rgba(237,145,26,0.28)' : C.neon ? 'rgba(91,128,255,0.18)' : null });
     // 톱니 허브
     ctx.save(); ctx.translate(r.cx, r.cy); ctx.rotate(r.angle);
     ctx.fillStyle = C.rotorC; ctx.beginPath();

@@ -67,6 +67,12 @@
     this.wall(W, H - 9, W / 2 + 1.15, H - 2.2);
     this.wall(W / 2 - 1.15, H - 2.2, W / 2 - 1.15, H + 0.4);
     this.wall(W / 2 + 1.15, H - 2.2, W / 2 + 1.15, H + 0.4);
+    // 막판 변수 ① 역전 범퍼: 깔때기 양옆에서 선두 구슬을 되튕겨 낸다
+    this.bumper(W / 2 - 4.3, H - 7.1, 0.72).bumper(W / 2 + 4.3, H - 7.1, 0.72);
+    this.bumpers[this.bumpers.length - 1].final = this.bumpers[this.bumpers.length - 2].final = true;
+    // 막판 변수 ② 결승 회전문: 결승 통로 입구에서 천천히 도는 막대. 가로로 누우면 길이 막히고, 세로로 서면 열린다
+    this.rotor(W / 2, H - 4.4, 3.6, 1.45, 0.3);
+    this.rotors[this.rotors.length - 1].final = true;
     this.goalY = H;
     return this;
   };
@@ -138,7 +144,7 @@
           const xs = r % 2 ? [W * 0.33, W * 0.67] : [W * 0.17, W * 0.5, W * 0.83];
           xs.forEach((x, i) => m.rotor(x, y, xs.length === 3 ? 5.8 : 7, ((r + i) % 2 ? 1 : -1) * (1.7 + rng() * 1.2), rng() * 6));
           for (let i = 0; i < 5; i++) m.peg(1.5 + rng() * (W - 3), y + 4.2 + rng() * 1.4, 0.24);
-          if (r % 3 === 1) { m.bumper(0.9, y + 4.5, 0.9); m.bumper(W - 0.9, y + 4.5, 0.9); }
+          if (r % 3 === 1) { m.bumper(2.4, y + 4.5, 0.9); m.bumper(W - 2.4, y + 4.5, 0.9); }   // 벽에 붙이면 구슬이 끼어 멈추므로 벽에서 띄운다
           if (r % 3 === 2) m.slider(W / 2, y + 4.9, 5, 7.5, 3 + rng(), rng() * 6);
         }
         m.portal(W / 2, 11 + 9 * 4 + 4.9, 3, 11 + 9 * 9 + 6.4);

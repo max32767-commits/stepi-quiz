@@ -279,9 +279,10 @@
     const rotMat = new T.MeshStandardMaterial({ color: 0x4f74ff, map: stripeTex, roughness: 0.3, metalness: 0.3, emissive: 0x1a2a80, emissiveIntensity: dark ? 0.5 : 0.1 });
     const hubMat = new T.MeshStandardMaterial({ color: 0xe8ecf5, roughness: 0.25, metalness: 0.6, envMap: this.env });
     const gearMat = new T.MeshStandardMaterial({ color: 0x2a46b8, roughness: 0.35, metalness: 0.4 });
+    const finalMat = new T.MeshStandardMaterial({ color: 0xff9a2e, map: stripeTex, roughness: 0.3, metalness: 0.3, emissive: 0x8a4a00, emissiveIntensity: dark ? 0.6 : 0.15 });
     this.rotors = map.rotors.map(r => {
       const grp = new T.Group();
-      const bar = new T.Mesh(capsuleGeo(r.len - r.t * 2, r.t, 0.9), rotMat); bar.castShadow = true;
+      const bar = new T.Mesh(capsuleGeo(r.len - r.t * 2, r.t, 0.9), r.final ? finalMat : rotMat); bar.castShadow = true;
       const gear = new T.Mesh(gearGeo(0.42, 0.33, 8, 1.0), gearMat); gear.castShadow = true;
       const hub = new T.Mesh(new T.CylinderGeometry(0.22, 0.22, 1.2, 20).rotateX(Math.PI / 2), hubMat); hub.position.z = 0.6; hub.castShadow = true;
       grp.add(bar, gear, hub); grp.position.set(X(r.cx), Y(r.cy), 0); g.add(grp);
