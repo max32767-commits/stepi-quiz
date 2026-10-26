@@ -71,7 +71,9 @@ const $ = id => document.getElementById(id);
 const msg = (t, cls) => { $('msg').textContent = t; $('msg').className = cls || ''; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let PIN = null;
-STEPI_PIN.require().then(p => { PIN = p; });
+STEPI_PIN.require().then(p => { PIN = p; warm(); setInterval(warm, 4 * 60 * 1000); });
+// 단어 벡터 인덱스(200MB)가 메모리에서 밀려나면 첫 검색이 10초 넘게 걸리므로, 진행자 화면이 열려 있는 동안 미리 데워 둔다
+function warm() { sb.rpc('warm_up').then(({ error }) => { if (error) console.warn('warm_up', error.message); }); }
 
 const playUrl = location.href.replace(/host\.html.*$/, 'play.html');
 new QRCode($('qr'), { text: playUrl, width: 220, height: 220, colorDark: '#373282' }); $('url').textContent = playUrl;

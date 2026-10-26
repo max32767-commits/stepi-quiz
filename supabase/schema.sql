@@ -426,3 +426,8 @@ alter policy ox_answers_insert on ox_answers with check (false);   -- 제출은 
 --      cm_set_phase(pin, code, phase, q) (lobby면 답 초기화) / cm_tally(code, q) → {a:[names], b:[names], answered, players}
 --      cm_matches(code, pid, limit) → 나와 일치 수 많은 순 / cm_top_pairs(code, limit) → 전체 짝 중 일치 수 많은 순
 -- 전체 정의는 Supabase 마이그레이션 common_ground_game 참고
+
+-- 꼬맨틀 성능: words_embedding_idx(HNSW, 201MB)가 shared_buffers(224MB)에서 밀려나면 첫 검색이 10초+ → 타임아웃.
+--   warm_up() : pg_prewarm 으로 인덱스를 미리 읽어 둠 (host.html 이 열릴 때·4분마다 호출), start_round 도 벤치마크 전에 prewarm
+--   anon 역할 statement_timeout 45s (기본 8s)
+--   words_embedding_half_idx : halfvec(300) HNSW (약 절반 크기) — 있으면 make_guess/round_benchmarks 가 이걸 사용
