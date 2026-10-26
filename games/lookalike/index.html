@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>닮은꼴 콘테스트</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="../ox/ox.css">
+<style>
+  .wrap{max-width:1400px;margin:0 auto;padding:20px;display:grid;grid-template-columns:360px minmax(0,1fr);gap:20px;align-items:start}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}}
+  body.present .wrap{grid-template-columns:1fr;max-width:1500px}body.present .wrap>aside{display:none!important}
+  .card h2{font-size:17px;margin:0 0 10px}
+  .hint{font-size:12px;color:var(--muted);line-height:1.5}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:12px;text-align:center;color:var(--muted);cursor:pointer;font-size:14px}.drop.over{border-color:var(--orange);color:var(--orange)}.drop input{display:none}
+  .thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;max-height:190px;overflow:auto}
+  .th{position:relative;width:64px;cursor:pointer;text-align:center;font-size:11px;color:var(--navy);font-weight:700}
+  .th img{width:64px;height:64px;object-fit:cover;border-radius:8px;display:block;border:3px solid transparent;background:#ddd}
+  .th.cur img{border-color:var(--orange)}.th.noface img{filter:grayscale(1);opacity:.5}.th.done::after{content:'✓';position:absolute;top:2px;right:2px;background:var(--o);color:#fff;border-radius:50%;width:16px;height:16px;font-size:11px;line-height:16px}
+  .th.noface::after{content:'✕';position:absolute;top:2px;right:2px;background:var(--x);color:#fff;border-radius:50%;width:16px;height:16px;font-size:11px;line-height:16px}
+  .th .x{position:absolute;top:2px;left:2px;background:rgba(0,0,0,.55);color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;line-height:16px;display:none}.th:hover .x{display:block}
+  .th .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sep{height:1px;background:var(--line);margin:14px 0}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.btnrow .btn{flex:1}
+  .prog{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:6px}.prog i{display:block;height:100%;background:var(--navy);width:0;transition:width .2s}
+  .stage-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .stage-top h1{font-size:clamp(22px,2.6vw,34px);color:var(--navy)}
+  .eyebrow{font-size:12px;letter-spacing:.14em;font-weight:800;color:var(--orange)}
+  .duel{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:stretch}
+  @media(max-width:700px){.duel{grid-template-columns:1fr}.vs{display:none}}
+  .pc{background:#0b0e14;border-radius:18px;overflow:hidden;position:relative;min-height:46vh;display:flex;align-items:center;justify-content:center}
+  .pc img{width:100%;height:100%;max-height:60vh;object-fit:contain;display:block}
+  .pc .tag{position:absolute;top:12px;left:12px;background:rgba(255,255,255,.92);color:var(--navy);font-weight:900;padding:6px 14px;border-radius:999px;font-size:14px}
+  .pc .nm{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(17,20,30,.85);color:#fff;font-weight:900;padding:8px 20px;border-radius:12px;font-size:clamp(18px,2.4vw,30px);white-space:nowrap}
+  .pc .empty{color:#8a93a6;font-size:16px;padding:20px;text-align:center}
+  .vs{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-width:160px}
+  .vs .v{font-size:36px;font-weight:900;color:var(--orange)}
+  .scorebox{text-align:center;background:#f5f6fb;border-radius:18px;padding:14px 18px;min-width:160px}
+  .scorebox .s{font-size:clamp(48px,7vw,96px);font-weight:900;color:var(--navy);line-height:1;font-variant-numeric:tabular-nums}
+  .scorebox .s.hot{color:var(--orange)}.scorebox .l{font-size:12px;color:var(--muted);font-weight:700}
+  .sentence{text-align:center;font-size:clamp(18px,2.2vw,28px);font-weight:800;margin:16px 0 6px;color:var(--ink)}
+  .sentence b{color:var(--orange)}
+  .comment{text-align:center;color:var(--muted);font-weight:600;min-height:1.5em}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center}
+  .controls .btn.big{font-size:20px;padding:16px 28px}
+  select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;font:inherit}
+  .board{display:grid;gap:6px;margin-top:12px}
+  .board .r{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;background:#f5f6fb;font-weight:700}
+  .board .r .rank{width:28px;color:var(--orange);font-weight:900}.board .r img{width:36px;height:36px;object-fit:cover;border-radius:50%}
+  .board .r .sc{margin-left:auto;color:var(--navy);font-variant-numeric:tabular-nums;font-size:18px}.board .r.top{background:#fff1e0}
+  .final{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px}@media(max-width:700px){.final{grid-template-columns:1fr}}
+  .final .p{text-align:center;background:#f5f6fb;border-radius:18px;padding:16px}.final .p img{width:100%;max-height:300px;object-fit:contain;border-radius:12px;background:#0b0e14}
+  .final .p h3{margin:10px 0 4px;color:var(--navy);font-size:22px}.final .p .s{font-size:36px;font-weight:900;color:var(--orange)}
+  .final .p.win{background:#fff1e0}
+  kbd{font:inherit;font-size:12px;background:#eef0fa;border-radius:6px;padding:1px 6px;color:var(--navy)}
+  .status{font-size:13px;font-weight:700;color:var(--navy);min-height:1.4em}
+</style>
+</head>
+<body class="host" style="padding:0">
+<div class="topbar">
+  <a class="brand" href="../../"><img src="../../assets/logo-word.png" alt="STEPI" style="height:26px"><img src="../../assets/logo-dots.png" alt="" style="height:20px"> 랜덤 게임</a>
+  <span class="pill">🎭 닮은꼴 콘테스트 · 진행자</span>
+</div>
+<div class="wrap">
+  <aside style="display:grid;gap:16px">
+    <div class="card">
+      <h2>0. 얼굴 인식 준비</h2>
+      <div class="status" id="model">모델 로드 중… (약 16MB, 처음 한 번)</div>
+      <div class="prog"><i id="mprog"></i></div>
+      <div class="hint" style="margin-top:6px">사진은 이 브라우저 안에서만 분석되고 어디로도 전송되지 않습니다 (API·서버 없음).</div>
+    </div>
+    <div class="card">
+      <h2>1. 연예인 사진</h2>
+      <div class="drop" id="dropC"><input type="file" id="fileC" accept="image/*" multiple>⭐ 연예인 사진 추가 (여러 장)<br><span class="hint">파일 이름이 연예인 이름이 됩니다</span></div>
+      <div class="thumbs" id="thC"></div>
+      <div class="sep"></div>
+      <h2>2. 직원 사진</h2>
+      <div class="drop" id="dropE"><input type="file" id="fileE" accept="image/*" multiple>🙋 직원 사진 추가 (여러 장)<br><span class="hint">파일 이름이 직원 이름이 됩니다 · 사전 동의 받은 사진만</span></div>
+      <div class="thumbs" id="thE"></div>
+      <div class="hint" id="cnt" style="margin-top:8px"></div>
+      <div class="btnrow"><button class="btn sm ghost" id="clearE">직원 비우기</button><button class="btn sm ghost" id="clearAll">모두 비우기</button></div>
+    </div>
+    <div class="card">
+      <h2>3. 진행</h2>
+      <label class="hint">비교할 연예인</label>
+      <select id="selC"></select>
+      <label class="hint" style="display:block;margin-top:8px">점수 공개할 직원</label>
+      <select id="selE"></select>
+      <div class="btnrow"><button class="btn orange" id="reveal">선택 직원 점수 공개</button></div>
+      <div class="btnrow"><button class="btn sm ghost" id="revealAll">남은 직원 모두 공개</button><button class="btn sm ghost" id="resetReveal">공개 초기화</button></div>
+      <div class="hint" style="margin-top:8px">단축키: <kbd>Enter</kbd> 점수 공개 · <kbd>→</kbd> 다음 직원 선택 · <kbd>F</kbd> 최종 결과</div>
+    </div>
+  </aside>
+
+  <section class="card">
+    <div class="stage-top">
+      <div><div class="eyebrow">LOOK-ALIKE CONTEST</div><h1 id="title">누가 가장 닮았을까요?</h1></div>
+      <div style="display:flex;gap:8px;align-items:center"><span class="pill" id="progress">공개 0 / 0</span><button class="btn sm ghost" id="present">🖥️ 진행 화면 (설정 숨기기)</button></div>
+    </div>
+    <div class="duel">
+      <div class="pc" id="pcC"><div class="empty">연예인 사진을 추가하세요</div></div>
+      <div class="vs"><div class="v">VS</div><div class="scorebox"><div class="s" id="score">—</div><div class="l">닮은꼴 점수 / 100</div></div></div>
+      <div class="pc" id="pcE"><div class="empty">직원 사진을 추가하세요</div></div>
+    </div>
+    <div class="sentence" id="sentence">연예인 <b>—</b> 님과 STEPI <b>—</b> 님의 닮은꼴 점수는 <b>—</b>점</div>
+    <div class="comment" id="comment"></div>
+    <div class="controls">
+      <button class="btn orange big" id="reveal2">점수 공개</button>
+      <button class="btn big" id="next">다음 직원 ▶</button>
+      <span style="flex:1"></span>
+      <button class="btn ghost" id="final">🏆 최종 결과</button>
+    </div>
+    <div id="boardWrap" style="margin-top:18px">
+      <b>닮은꼴 순위</b> <span class="hint">(공개된 직원만)</span>
+      <div class="board" id="board"></div>
+    </div>
+    <div id="finalWrap" class="hidden">
+      <div class="sep"></div>
+      <h2 style="text-align:center;color:var(--navy)">🏆 최종 닮은꼴 결과</h2>
+      <div class="hint" id="finalSub" style="text-align:center"></div>
+      <div class="final" id="finalDuo"></div>
+    </div>
+  </section>
+</div>
+<div class="confetti" id="confetti"></div>
+
+<script src="ort/ort.wasm.min.js"></script>
+<script src="face.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let celebs = [], emps = [], revealed = new Set(), ci = 0, ei = 0, animTimer = null;
+
+// ---- 모델 ----
+FACE.load((label, p) => { $('model').textContent = `${label} 로드 중… ${Math.round(p * 100)}%`; $('mprog').style.width = (label.includes('검출') ? p * 20 : 20 + p * 80) + '%'; })
+  .then(() => { $('model').textContent = '✅ 얼굴 인식 준비 완료'; $('mprog').style.width = '100%'; processQueue(); })
+  .catch(e => { $('model').textContent = '❌ 모델 로드 실패: ' + e.message; });
+
+// ---- 사진 ----
+function readImg(f) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => { const img = new Image(); img.onload = () => res({ name: f.name.replace(/\.[^.]+$/, ''), url: r.result, img, emb: null, state: 'wait' }); img.onerror = rej; img.src = r.result; }; r.onerror = rej; r.readAsDataURL(f); }); }
+async function addFiles(list, files) {
+  for (const f of [...files]) if (f.type.startsWith('image/')) list.push(await readImg(f));
+  render(); processQueue();
+}
+let processing = false;
+async function processQueue() {
+  if (processing || !FACE.ready) return; processing = true;
+  for (const p of [...celebs, ...emps]) {
+    if (p.state !== 'wait') continue;
+    p.state = 'busy'; render();
+    try { const r = await FACE.analyze(p.img); if (r) { p.emb = r.emb; p.face = r.face; p.state = 'done'; } else p.state = 'noface'; }
+    catch (e) { console.error(e); p.state = 'noface'; }
+    render();
+  }
+  processing = false;
+}
+function bindDrop(dropId, fileId, list) {
+  const d = $(dropId); d.onclick = () => $(fileId).click();
+  $(fileId).onchange = e => { addFiles(list, e.target.files); e.target.value = ''; };
+  ['dragenter', 'dragover'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); d.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); d.classList.remove('over'); }));
+  d.addEventListener('drop', e => addFiles(list, e.dataTransfer.files));
+}
+bindDrop('dropC', 'fileC', celebs); bindDrop('dropE', 'fileE', emps);
+$('clearE').onclick = () => { if (emps.length && confirm('직원 사진을 모두 지울까요?')) { emps.length = 0; revealed.clear(); ei = 0; render(); } };
+$('clearAll').onclick = () => { if ((emps.length || celebs.length) && confirm('모든 사진을 지울까요?')) { emps.length = 0; celebs.length = 0; revealed.clear(); ci = ei = 0; render(); } };
+
+// ---- 점수 ----
+const key = (c, e) => c + '|' + e;
+function scoreOf(c, e) { const a = celebs[c], b = emps[e]; if (!a || !b || !a.emb || !b.emb) return null; return FACE.toScore(FACE.similarity(a.emb, b.emb)); }
+const COMMENTS = [[85, ['거의 쌍둥이 수준! 눈·코·입 배치가 꼭 닮았어요', '얼굴 골격이 놀랄 만큼 비슷해요']], [70, ['얼굴형과 이목구비 비율이 뚜렷하게 닮았어요', '한눈에 봐도 닮은꼴! 눈매가 특히 비슷해요']], [50, ['여러 부분이 어느 정도 닮았어요 — 특히 얼굴 윤곽', '분위기보다는 얼굴 구조가 비슷한 편']], [30, ['일부 특징만 살짝 닮았어요', '닮은 듯 안 닮은 듯… 미묘합니다']], [0, ['전혀 다른 매력! 닮은 점을 찾기 어려워요', '닮은꼴은 아니지만 각자 개성이 뚜렷해요']]];
+function commentFor(s, seed) { for (const [min, arr] of COMMENTS) if (s >= min) return arr[seed % arr.length]; return ''; }
+
+// ---- 렌더 ----
+function thumbs(el, list, cur, isC) {
+  el.innerHTML = list.map((p, i) => `<div class="th ${i === cur ? 'cur' : ''} ${p.state}" data-i="${i}"><img src="${p.face || p.url}" alt=""><span class="x" data-del="${i}">✕</span><div class="nm">${esc(p.name)}</div></div>`).join('');
+  el.onclick = e => {
+    const d = e.target.closest('[data-del]'); if (d) { const i = +d.dataset.del; list.splice(i, 1); if (isC) { ci = Math.min(ci, Math.max(0, celebs.length - 1)); revealed = new Set([...revealed].filter(k => +k.split('|')[0] !== i).map(k => { const [c, e2] = k.split('|').map(Number); return key(c > i ? c - 1 : c, e2); })); } else { ei = Math.min(ei, Math.max(0, emps.length - 1)); revealed = new Set([...revealed].filter(k => +k.split('|')[1] !== i).map(k => { const [c, e2] = k.split('|').map(Number); return key(c, e2 > i ? e2 - 1 : e2); })); } render(); return; }
+    const t = e.target.closest('.th'); if (t) { if (isC) ci = +t.dataset.i; else ei = +t.dataset.i; render(); }
+  };
+}
+function render() {
+  thumbs($('thC'), celebs, ci, true); thumbs($('thE'), emps, ei, false);
+  const nf = [...celebs, ...emps].filter(p => p.state === 'noface').length;
+  $('cnt').textContent = `연예인 ${celebs.length}명 · 직원 ${emps.length}명` + (nf ? ` · 얼굴 못 찾음 ${nf}장(회색 ✕ — 정면 사진으로 바꿔 주세요)` : '');
+  $('selC').innerHTML = celebs.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join(''); $('selC').value = ci;
+  $('selE').innerHTML = emps.map((p, i) => `<option value="${i}">${esc(p.name)}${revealed.has(key(ci, i)) ? ' ✓' : ''}</option>`).join(''); $('selE').value = ei;
+  const c = celebs[ci], e = emps[ei];
+  $('pcC').innerHTML = c ? `<img src="${c.url}" alt=""><span class="tag">CELEBRITY</span><span class="nm">${esc(c.name)}</span>` : '<div class="empty">연예인 사진을 추가하세요</div>';
+  $('pcE').innerHTML = e ? `<img src="${e.url}" alt=""><span class="tag">WORKSHOP STAR</span><span class="nm">${esc(e.name)}</span>` : '<div class="empty">직원 사진을 추가하세요</div>';
+  const vis = c && e && revealed.has(key(ci, ei)), s = vis ? scoreOf(ci, ei) : null;
+  if (!animTimer) { $('score').textContent = s == null ? '—' : s; $('score').className = 's' + (s != null && s >= 70 ? ' hot' : ''); }
+  $('sentence').innerHTML = `연예인 <b>${esc(c ? c.name : '—')}</b> 님과 STEPI <b>${esc(e ? e.name : '—')}</b> 님의 닮은꼴 점수는 <b>${s == null ? '—' : s}</b>점`;
+  $('comment').textContent = s == null ? (c && e ? (c.emb && e.emb ? '점수 공개를 누르면 채점 결과가 나옵니다' : (c.state === 'busy' || e.state === 'busy' ? '얼굴 분석 중…' : '얼굴을 찾지 못한 사진이 있어요')) : '') : commentFor(s, ci * 7 + ei);
+  const n = emps.filter((_, i) => revealed.has(key(ci, i)) && scoreOf(ci, i) != null).length;
+  $('progress').textContent = `공개 ${n} / ${emps.length}`;
+  $('title').textContent = c ? `${c.name} 닮은꼴은 누구?` : '누가 가장 닮았을까요?';
+  renderBoard();
+}
+function ranked() { return emps.map((p, i) => ({ p, i, s: scoreOf(ci, i) })).filter(x => revealed.has(key(ci, x.i)) && x.s != null).sort((a, b) => b.s - a.s); }
+function renderBoard() {
+  const r = ranked();
+  $('board').innerHTML = r.length ? r.map((x, k) => `<div class="r ${k === 0 ? 'top' : ''}"><span class="rank">${k + 1}</span><img src="${x.p.face || x.p.url}" alt="">${esc(x.p.name)}<span class="sc">${x.s}점</span></div>`).join('') : '<div class="hint">아직 공개된 점수가 없어요.</div>';
+}
+
+// ---- 공개 ----
+function reveal() {
+  const c = celebs[ci], e = emps[ei]; if (!c || !e) return;
+  const s = scoreOf(ci, ei); if (s == null) { $('comment').textContent = '얼굴을 찾지 못해 채점할 수 없어요. 다른 사진으로 바꿔 주세요.'; return; }
+  if (revealed.has(key(ci, ei))) { render(); return; }
+  revealed.add(key(ci, ei)); $('finalWrap').classList.add('hidden');
+  // 카운트업 연출
+  clearInterval(animTimer); const t0 = performance.now(), el = $('score'); el.className = 's';
+  animTimer = setInterval(() => {
+    const k = Math.min(1, (performance.now() - t0) / 1800), v = k < 1 ? Math.round(s * (1 - Math.pow(1 - k, 3)) + (k < 0.9 ? Math.random() * 9 : 0)) : s;
+    el.textContent = Math.min(100, v);
+    if (k >= 1) { clearInterval(animTimer); animTimer = null; el.className = 's' + (s >= 70 ? ' hot' : ''); render(); if (s >= 85) confetti(); }
+  }, 40);
+  render();
+}
+function nextEmp() { if (!emps.length) return; const un = emps.findIndex((_, i) => i > ei && !revealed.has(key(ci, i))); ei = un >= 0 ? un : (ei + 1) % emps.length; render(); }
+$('reveal').onclick = $('reveal2').onclick = reveal;
+$('next').onclick = nextEmp;
+$('revealAll').onclick = async () => { for (let i = 0; i < emps.length; i++) if (!revealed.has(key(ci, i)) && scoreOf(ci, i) != null) revealed.add(key(ci, i)); render(); };
+$('resetReveal').onclick = () => { if (confirm('공개한 점수를 모두 숨길까요? (채점 결과는 유지)')) { revealed.clear(); $('finalWrap').classList.add('hidden'); render(); } };
+$('selC').onchange = () => { ci = +$('selC').value; $('finalWrap').classList.add('hidden'); render(); };
+$('selE').onchange = () => { ei = +$('selE').value; render(); };
+$('final').onclick = showFinal;
+function showFinal() {
+  const r = ranked(); if (!r.length) return alert('점수를 한 명 이상 공개한 뒤 볼 수 있어요.');
+  const c = celebs[ci], top = r[0].s, bot = r[r.length - 1].s, wins = r.filter(x => x.s === top), loses = top === bot ? [] : r.filter(x => x.s === bot);
+  $('finalSub').textContent = `비교 연예인: ${c.name} · 공개 ${r.length}명`;
+  const card = (x, label, win) => `<div class="p ${win ? 'win' : ''}"><div class="hint" style="font-weight:800;color:var(--navy)">${label}</div><img src="${x.p.url}" alt=""><h3>${esc(x.p.name)}</h3><div class="s">${x.s}점</div><div class="hint">${commentFor(x.s, ci * 7 + x.i)}</div></div>`;
+  $('finalDuo').innerHTML = wins.map(x => card(x, (wins.length > 1 ? '🥇 공동 1등 · ' : '🥇 1등 · ') + '최고 닮은꼴', true)).join('') + loses.map(x => card(x, (loses.length > 1 ? '🎉 공동 꼴등 · ' : '🎉 꼴등 · ') + '최저 닮은꼴', false)).join('');
+  $('finalWrap').classList.remove('hidden'); $('finalWrap').scrollIntoView({ behavior: 'smooth', block: 'start' }); confetti();
+}
+$('present').onclick = () => { document.body.classList.toggle('present'); $('present').textContent = document.body.classList.contains('present') ? '⚙️ 설정 보이기' : '🖥️ 진행 화면 (설정 숨기기)'; };
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input,select,textarea')) return;
+  if (e.key === 'Enter') reveal(); else if (e.key === 'ArrowRight') nextEmp(); else if (e.key === 'f' || e.key === 'F') showFinal();
+});
+function confetti() {
+  const c = $('confetti'); c.innerHTML = ''; const colors = ['#373282', '#ED911A', '#1f8a5b', '#d6453d', '#f5c518', '#6c5ce7'];
+  for (let i = 0; i < 90; i++) { const s = document.createElement('i'); s.style.cssText = `left:${Math.random() * 100}vw;background:${colors[i % 6]};animation-delay:${Math.random() * 1.5}s;transform:rotate(${Math.random() * 360}deg)`; c.appendChild(s); }
+  setTimeout(() => c.innerHTML = '', 5000);
+}
+render();
+</script>
+<script src="../../shared/home.js"></script>
+</body>
+</html>
