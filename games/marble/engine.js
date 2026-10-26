@@ -50,8 +50,8 @@
     return this;
   };
   // 순간이동 포털: 입구(ax,ay) → 출구(bx,by)
-  MapBuilder.prototype.portal = function (ax, ay, bx, by) {
-    this.portals.push({ ax, ay, bx, by, r: 0.85 });
+  MapBuilder.prototype.portal = function (ax, ay, bx, by, r) {
+    this.portals.push({ ax, ay, bx, by, r: r || 0.85 });
     return this;
   };
   // 양쪽 벽에서 가운데 틈으로 모으는 깔때기
@@ -60,7 +60,7 @@
     this.wall(W, y, W / 2 + gapHalf, y + drop);
     return this;
   };
-  MapBuilder.prototype.finish = function () {
+  MapBuilder.prototype.finish = function (gate) {
     const H = this.H;
     // 도착 깔때기 + 좁은 결승 통로: 한 번에 한 개씩 통과하도록 순서를 분명하게 만든다
     this.wall(0, H - 9, W / 2 - 1.15, H - 2.2);
@@ -77,6 +77,11 @@
     // 막판 변수 ③ 결승 회전문: 결승 통로 입구에서 천천히 도는 막대. 가로로 누우면 길이 막히고, 세로로 서면 열린다
     this.rotor(W / 2, H - 4.4, 3.6, 1.45, 0.3);
     this.rotors[this.rotors.length - 1].final = true;
+    // 막판 변수 ④ 골문 장애물: 결승 통로(폭 2.3) 안, 결승선 바로 위에서 마지막 순간에 순위를 바꾼다. 맵마다 다름
+    if (gate === 'spinner') { this.rotor(W / 2, H - 1.1, 1.5, 6.5, 1.0); this.rotors[this.rotors.length - 1].final = true; this.rotors[this.rotors.length - 1].t = 0.14; }
+    else if (gate === 'trapdoor') { this.slider(W / 2 - 0.55, H - 0.9, 1.1, 1.25, 1.15, 0); this.movers[this.movers.length - 1].final = true; }
+    else if (gate === 'flipper') { this.flipper(W / 2 - 1.15, H - 0.6, 1.4, -0.25, -1.0, 1.35, 0); this.movers[this.movers.length - 1].final = true; }
+    else if (gate === 'warp') { this.portal(W / 2, H - 1.3, W / 2, H - 9.5, 0.4); this.portals[this.portals.length - 1].final = true; }   // 골문 한가운데를 지나면 깔때기 위로 되돌아간다(가장자리로 지나면 통과)
     this.goalY = H;
     return this;
   };
@@ -112,7 +117,7 @@
         // 결승 전 플리퍼
         m.flipper(1.2, H - 13.5, 6, 0.55, -0.75, 1.9, 0);
         m.flipper(W - 1.2, H - 13.5, 6, Math.PI - 0.55, 0.75, 1.9, Math.PI);
-        return m.finish();
+        return m.finish('spinner');
       }
     },
     {
@@ -135,7 +140,7 @@
         m.portal(9, 25.2, W / 2, 71);
         m.flipper(3, H - 12.5, 5.5, 0.45, -0.7, 2.3, 0);
         m.flipper(W - 3, H - 12.5, 5.5, Math.PI - 0.45, 0.7, 2.3, Math.PI);
-        return m.finish();
+        return m.finish('trapdoor');
       }
     },
     {
@@ -154,7 +159,7 @@
         m.portal(W / 2, 11 + 9 * 4 + 4.9, 3, 11 + 9 * 9 + 6.4);
         m.flipper(1.2, H - 13, 6, 0.55, -0.75, 1.7, 0);
         m.flipper(W - 1.2, H - 13, 6, Math.PI - 0.55, 0.75, 1.7, Math.PI);
-        return m.finish();
+        return m.finish('flipper');
       }
     },
     {
@@ -175,7 +180,7 @@
         m.portal(W * 0.5, 10 + 7.5 * 3 + 3.8, W * 0.22, 10 + 7.5 * 10 - 1.2);
         m.flipper(1.2, H - 12.5, 6, 0.5, -0.75, 2, 0);
         m.flipper(W - 1.2, H - 12.5, 6, Math.PI - 0.5, 0.75, 2, Math.PI);
-        return m.finish();
+        return m.finish('warp');
       }
     }
   ];
@@ -398,6 +403,12 @@
       m.still = sp < 0.35 ? m.still + STEP : 0;
       if (m.still > 1.4) {
         m.vx += (this.rng() - 0.5) * 12; m.vy -= 5 + this.rng() * 4; m.still = 0;
+        this.effects.push({ type: 'nudge', x: m.x, y: m.y, t: 0, color: m.color });
+      }
+      // 제자리에서 떨기만 하는 구슬(범퍼·핀 사이에 낀 경우): 2.5초 동안 0.8 이상 못 움직이면 크게 튕겨 낸다
+      if (m.ax === undefined || Math.hypot(m.x - m.ax, m.y - m.ay) > 0.8) { m.ax = m.x; m.ay = m.y; m.at = this.time; }
+      else if (this.time - m.at > 2.5) {
+        m.vx += (this.rng() - 0.5) * 16; m.vy = -(9 + this.rng() * 5); m.at = this.time;
         this.effects.push({ type: 'nudge', x: m.x, y: m.y, t: 0, color: m.color });
       }
     }
