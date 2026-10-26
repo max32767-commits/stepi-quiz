@@ -7,4 +7,14 @@
     + 'html.stepi-locked body::before{content:"🔒 진행자 확인 중…";position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font:700 18px Pretendard,"Noto Sans KR",sans-serif;background:#373282;z-index:9980}';
   document.head.appendChild(st);
   window.STEPI_UNLOCK = function () { document.documentElement.classList.remove('stepi-locked'); };
+  // 안전장치: 예전 버전 pin.js 가 캐시돼 unlock 을 안 부르더라도, PIN 모달(.pin-ov)이 닫히면 잠금을 푼다
+  document.addEventListener('DOMContentLoaded', function () {
+    var seen = false;
+    new MutationObserver(function (muts) {
+      muts.forEach(function (m) {
+        m.addedNodes.forEach(function (n) { if (n.classList && n.classList.contains('pin-ov')) seen = true; });
+        m.removedNodes.forEach(function (n) { if (n.classList && n.classList.contains('pin-ov') && seen) window.STEPI_UNLOCK(); });
+      });
+    }).observe(document.body, { childList: true });
+  });
 })();
