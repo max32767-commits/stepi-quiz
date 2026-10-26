@@ -72,6 +72,7 @@ Supabase 프로젝트 `stepi-quiz`에 연결돼 있고(`shared/supabase-config.j
 
 - `games/lookalike/models/` : InsightFace buffalo_sc 팩(SCRFD-500m 검출 2.5MB + ArcFace MobileFaceNet w600k_mbf 13.6MB), `games/lookalike/ort/` : onnxruntime-web 1.19.2 런타임(11MB). 전부 정적 파일이라 GitHub Pages에서 그대로 동작하고 사진은 브라우저 밖으로 나가지 않는다.
 - 점수 = 두 얼굴 임베딩의 코사인 유사도를 `face.js`의 CURVE 표로 0~100에 펴서 표시. 서로 다른 사람끼리는 대체로 -0.1~0.3에 몰리므로 표를 조정해 체감 점수 폭을 바꿀 수 있다.
+- 부위별 설명(`parts.js`)은 MediaPipe Face Mesh(`games/lookalike/mp/`, 11MB) 468점 랜드마크로 얼굴형·눈매·코·입매·눈썹의 기하 특징을 재서 비교한다. 각 부위 점수(0~100)와 "특히 닮은 부위" 문장, 가장 다른 부위 한 줄을 만든다. 기준값·허용 오차는 parts.js의 PARTS 표.
 - 여러 명이 찍힌 사진은 가장 큰 얼굴을 쓴다. 옆모습·마스크·너무 작은 얼굴은 "얼굴 못 찾음"으로 표시되니 정면 사진으로 바꿀 것.
 
 ## 로컬 실행

@@ -54,6 +54,12 @@
   .final .p.win{background:#fff1e0}
   kbd{font:inherit;font-size:12px;background:#eef0fa;border-radius:6px;padding:1px 6px;color:var(--navy)}
   .status{font-size:13px;font-weight:700;color:var(--navy);min-height:1.4em}
+  .parts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:10px 0 0}
+  .parts .pt{min-width:96px;background:#f5f6fb;border-radius:12px;padding:8px 10px;text-align:center}
+  .parts .pt b{display:block;font-size:13px;color:var(--navy)}.parts .pt .bar{height:7px;background:#e3e6ef;border-radius:4px;margin:6px 0 4px;overflow:hidden}.parts .pt .bar i{display:block;height:100%;background:var(--navy);border-radius:4px;transition:width .6s}
+  .parts .pt .bar i.hi{background:var(--orange)}.parts .pt small{color:var(--muted);font-weight:700}
+  .why{text-align:center;font-size:clamp(15px,1.7vw,20px);font-weight:600;margin-top:8px;min-height:1.5em}.why b{color:var(--navy)}
+  .why .diff{display:block;font-size:13px;color:var(--muted);font-weight:600;margin-top:2px}
 </style>
 </head>
 <body class="host" style="padding:0">
@@ -67,7 +73,7 @@
       <h2>0. 얼굴 인식 준비</h2>
       <div class="status" id="model">모델 로드 중… (약 16MB, 처음 한 번)</div>
       <div class="prog"><i id="mprog"></i></div>
-      <div class="hint" style="margin-top:6px">사진은 이 브라우저 안에서만 분석되고 어디로도 전송되지 않습니다 (API·서버 없음).</div>
+      <div class="hint" style="margin-top:6px">사진은 이 브라우저 안에서만 분석되고 어디로도 전송되지 않습니다.</div>
     </div>
     <div class="card">
       <h2>1. 연예인 사진</h2>
@@ -104,6 +110,8 @@
     </div>
     <div class="sentence" id="sentence">연예인 <b>—</b> 님과 STEPI <b>—</b> 님의 닮은꼴 점수는 <b>—</b>점</div>
     <div class="comment" id="comment"></div>
+    <div class="why" id="why"></div>
+    <div class="parts" id="parts"></div>
     <div class="controls">
       <button class="btn orange big" id="reveal2">점수 공개</button>
       <button class="btn big" id="next">다음 직원 ▶</button>
@@ -125,16 +133,20 @@
 <div class="confetti" id="confetti"></div>
 
 <script src="ort/ort.wasm.min.js"></script>
+<script src="mp/face_mesh.js"></script>
 <script src="face.js"></script>
+<script src="parts.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-let celebs = [], emps = [], revealed = new Set(), ci = 0, ei = 0, animTimer = null;
+let celebs = [], emps = [], revealed = new Set(), ci = 0, ei = 0, animTimer = null, animating = null;   // animating: 카운트업 중인 키(순위엔 아직 안 올림)
 
 // ---- 모델 ----
 FACE.load((label, p) => { $('model').textContent = `${label} 로드 중… ${Math.round(p * 100)}%`; $('mprog').style.width = (label.includes('검출') ? p * 20 : 20 + p * 80) + '%'; })
-  .then(() => { $('model').textContent = '✅ 얼굴 인식 준비 완료'; $('mprog').style.width = '100%'; processQueue(); })
-  .catch(e => { $('model').textContent = '❌ 모델 로드 실패: ' + e.message; });
+  .then(() => { $('model').textContent = '✅ 얼굴 인식 준비 완료 · 부위 분석 모델 로드 중…'; $('mprog').style.width = '100%'; return PARTS.load(); })
+  .then(() => { $('model').textContent = '✅ 얼굴 인식 + 부위 분석 준비 완료'; partsReady = true; processQueue(); })
+  .catch(e => { $('model').textContent = (FACE.ready ? '✅ 얼굴 인식 준비 완료 · ⚠️ 부위 분석 불가: ' : '❌ 모델 로드 실패: ') + e.message; if (FACE.ready) processQueue(); });
+let partsReady = false;
 
 // ---- 사진 ----
 function readImg(f) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => { const img = new Image(); img.onload = () => res({ name: f.name.replace(/\.[^.]+$/, ''), url: r.result, img, emb: null, state: 'wait' }); img.onerror = rej; img.src = r.result; }; r.onerror = rej; r.readAsDataURL(f); }); }
@@ -150,6 +162,7 @@ async function processQueue() {
     p.state = 'busy'; render();
     try { const r = await FACE.analyze(p.img); if (r) { p.emb = r.emb; p.face = r.face; p.state = 'done'; } else p.state = 'noface'; }
     catch (e) { console.error(e); p.state = 'noface'; }
+    if (p.state === 'done' && partsReady) { try { p.parts = await PARTS.analyze(p.img); } catch (e) { console.warn('parts', e); p.parts = null; } }
     render();
   }
   processing = false;
@@ -187,17 +200,25 @@ function render() {
   $('selE').innerHTML = emps.map((p, i) => `<option value="${i}">${esc(p.name)}${revealed.has(key(ci, i)) ? ' ✓' : ''}</option>`).join(''); $('selE').value = ei;
   const c = celebs[ci], e = emps[ei];
   $('pcC').innerHTML = c ? `<img src="${c.url}" alt=""><span class="tag">CELEBRITY</span><span class="nm">${esc(c.name)}</span>` : '<div class="empty">연예인 사진을 추가하세요</div>';
-  $('pcE').innerHTML = e ? `<img src="${e.url}" alt=""><span class="tag">WORKSHOP STAR</span><span class="nm">${esc(e.name)}</span>` : '<div class="empty">직원 사진을 추가하세요</div>';
+  $('pcE').innerHTML = e ? `<img src="${e.url}" alt=""><span class="tag">STEPIan</span><span class="nm">${esc(e.name)}</span>` : '<div class="empty">직원 사진을 추가하세요</div>';
   const vis = c && e && revealed.has(key(ci, ei)), s = vis ? scoreOf(ci, ei) : null;
   if (!animTimer) { $('score').textContent = s == null ? '—' : s; $('score').className = 's' + (s != null && s >= 70 ? ' hot' : ''); }
   $('sentence').innerHTML = `연예인 <b>${esc(c ? c.name : '—')}</b> 님과 STEPI <b>${esc(e ? e.name : '—')}</b> 님의 닮은꼴 점수는 <b>${s == null ? '—' : s}</b>점`;
-  $('comment').textContent = s == null ? (c && e ? (c.emb && e.emb ? '점수 공개를 누르면 채점 결과가 나옵니다' : (c.state === 'busy' || e.state === 'busy' ? '얼굴 분석 중…' : '얼굴을 찾지 못한 사진이 있어요')) : '') : commentFor(s, ci * 7 + ei);
+  $('comment').textContent = animating ? '채점 중…' : s == null ? (c && e ? (c.emb && e.emb ? '점수 공개를 누르면 채점 결과가 나옵니다' : (c.state === 'busy' || e.state === 'busy' ? '얼굴 분석 중…' : '얼굴을 찾지 못한 사진이 있어요')) : '') : commentFor(s, ci * 7 + ei);
+  renderParts(vis && !animating ? c : null, vis && !animating ? e : null);
   const n = emps.filter((_, i) => revealed.has(key(ci, i)) && scoreOf(ci, i) != null).length;
   $('progress').textContent = `공개 ${n} / ${emps.length}`;
   $('title').textContent = c ? `${c.name} 닮은꼴은 누구?` : '누가 가장 닮았을까요?';
   renderBoard();
 }
-function ranked() { return emps.map((p, i) => ({ p, i, s: scoreOf(ci, i) })).filter(x => revealed.has(key(ci, x.i)) && x.s != null).sort((a, b) => b.s - a.s); }
+function renderParts(c, e) {
+  const cmp = c && e && c.parts && e.parts ? PARTS.compare(c.parts, e.parts, c.name, e.name) : null;
+  if (!cmp) { $('why').innerHTML = c && e && (!c.parts || !e.parts) ? '<span class="diff">부위별 분석은 이 사진에서 할 수 없었어요</span>' : ''; $('parts').innerHTML = ''; return; }
+  $('why').innerHTML = cmp.text + (cmp.diffText ? `<span class="diff">${esc(cmp.diffText)}</span>` : '');
+  $('parts').innerHTML = cmp.parts.map(p => `<div class="pt"><b>${p.label}</b><div class="bar"><i class="${p.score >= 70 ? 'hi' : ''}" style="width:${p.score}%"></i></div><small>${p.score}</small></div>`).join('');
+}
+function partsText(c, e) { const cmp = c && e && c.parts && e.parts ? PARTS.compare(c.parts, e.parts, c.name, e.name) : null; return cmp ? cmp.text : ''; }
+function ranked() { return emps.map((p, i) => ({ p, i, s: scoreOf(ci, i) })).filter(x => revealed.has(key(ci, x.i)) && key(ci, x.i) !== animating && x.s != null).sort((a, b) => b.s - a.s); }
 function renderBoard() {
   const r = ranked();
   $('board').innerHTML = r.length ? r.map((x, k) => `<div class="r ${k === 0 ? 'top' : ''}"><span class="rank">${k + 1}</span><img src="${x.p.face || x.p.url}" alt="">${esc(x.p.name)}<span class="sc">${x.s}점</span></div>`).join('') : '<div class="hint">아직 공개된 점수가 없어요.</div>';
@@ -208,13 +229,13 @@ function reveal() {
   const c = celebs[ci], e = emps[ei]; if (!c || !e) return;
   const s = scoreOf(ci, ei); if (s == null) { $('comment').textContent = '얼굴을 찾지 못해 채점할 수 없어요. 다른 사진으로 바꿔 주세요.'; return; }
   if (revealed.has(key(ci, ei))) { render(); return; }
-  revealed.add(key(ci, ei)); $('finalWrap').classList.add('hidden');
+  revealed.add(key(ci, ei)); animating = key(ci, ei); $('finalWrap').classList.add('hidden');
   // 카운트업 연출
   clearInterval(animTimer); const t0 = performance.now(), el = $('score'); el.className = 's';
   animTimer = setInterval(() => {
     const k = Math.min(1, (performance.now() - t0) / 1800), v = k < 1 ? Math.round(s * (1 - Math.pow(1 - k, 3)) + (k < 0.9 ? Math.random() * 9 : 0)) : s;
     el.textContent = Math.min(100, v);
-    if (k >= 1) { clearInterval(animTimer); animTimer = null; el.className = 's' + (s >= 70 ? ' hot' : ''); render(); if (s >= 85) confetti(); }
+    if (k >= 1) { clearInterval(animTimer); animTimer = null; animating = null; el.className = 's' + (s >= 70 ? ' hot' : ''); render(); if (s >= 85) confetti(); }
   }, 40);
   render();
 }
@@ -230,7 +251,7 @@ function showFinal() {
   const r = ranked(); if (!r.length) return alert('점수를 한 명 이상 공개한 뒤 볼 수 있어요.');
   const c = celebs[ci], top = r[0].s, bot = r[r.length - 1].s, wins = r.filter(x => x.s === top), loses = top === bot ? [] : r.filter(x => x.s === bot);
   $('finalSub').textContent = `비교 연예인: ${c.name} · 공개 ${r.length}명`;
-  const card = (x, label, win) => `<div class="p ${win ? 'win' : ''}"><div class="hint" style="font-weight:800;color:var(--navy)">${label}</div><img src="${x.p.url}" alt=""><h3>${esc(x.p.name)}</h3><div class="s">${x.s}점</div><div class="hint">${commentFor(x.s, ci * 7 + x.i)}</div></div>`;
+  const card = (x, label, win) => `<div class="p ${win ? 'win' : ''}"><div class="hint" style="font-weight:800;color:var(--navy)">${label}</div><img src="${x.p.url}" alt=""><h3>${esc(x.p.name)}</h3><div class="s">${x.s}점</div><div class="hint">${commentFor(x.s, ci * 7 + x.i)}</div><div class="hint" style="margin-top:4px">${partsText(c, x.p)}</div></div>`;
   $('finalDuo').innerHTML = wins.map(x => card(x, (wins.length > 1 ? '🥇 공동 1등 · ' : '🥇 1등 · ') + '최고 닮은꼴', true)).join('') + loses.map(x => card(x, (loses.length > 1 ? '🎉 공동 꼴등 · ' : '🎉 꼴등 · ') + '최저 닮은꼴', false)).join('');
   $('finalWrap').classList.remove('hidden'); $('finalWrap').scrollIntoView({ behavior: 'smooth', block: 'start' }); confetti();
 }
