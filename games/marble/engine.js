@@ -114,7 +114,7 @@
         // 결승 전 플리퍼
         m.flipper(1.2, H - 13.5, 6, 0.55, -0.75, 1.9, 0);
         m.flipper(W - 1.2, H - 13.5, 6, Math.PI - 0.55, 0.75, 1.9, Math.PI);
-        return m.finish('spinner');
+        return m.finish('flipper');
       }
     },
     {
@@ -135,7 +135,7 @@
         }
         m.flipper(3, H - 12.5, 5.5, 0.45, -0.7, 2.3, 0);
         m.flipper(W - 3, H - 12.5, 5.5, Math.PI - 0.45, 0.7, 2.3, Math.PI);
-        return m.finish('trapdoor');
+        return m.finish('flipper');
       }
     },
     {
@@ -173,7 +173,7 @@
         }
         m.flipper(1.2, H - 12.5, 6, 0.5, -0.75, 2, 0);
         m.flipper(W - 1.2, H - 12.5, 6, Math.PI - 0.5, 0.75, 2, Math.PI);
-        return m.finish('door');
+        return m.finish('flipper');
       }
     }
   ];
