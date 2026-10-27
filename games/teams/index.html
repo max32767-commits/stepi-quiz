@@ -9,10 +9,14 @@
 :root{
   --bg:#08080e;--surf:#111118;--surf2:#18181f;
   --brd:rgba(255,255,255,0.09);--brd2:rgba(255,255,255,0.16);
-  --txt:#eeeef5;--mut:#6a6a88;--acc:#7b6ef6;
+  --txt:#eeeef5;--mut:#6a6a88;--acc:#7b6ef6;--bbl:#1c1c28;--ring:#fff;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden}
+html[data-theme=light]{--bg:#f4f5fa;--surf:#ffffff;--surf2:#eef0f7;--brd:rgba(0,0,0,0.08);--brd2:rgba(0,0,0,0.16);--txt:#1b2230;--mut:#6b7280;--acc:#5b4fe0;--bbl:#ffffff;--ring:#373282}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden;transition:background .2s,color .2s}
+.theme-tg{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surf);border:0.5px solid var(--brd2);border-radius:999px;padding:4px}
+.theme-tg button{border:0;background:transparent;color:var(--mut);font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:700;padding:6px 12px;border-radius:999px;cursor:pointer}
+.theme-tg button.on{background:var(--acc);color:#fff}
 body::before{content:'';position:fixed;inset:0;
   background-image:linear-gradient(rgba(123,110,246,0.035) 1px,transparent 1px),
   linear-gradient(90deg,rgba(123,110,246,0.035) 1px,transparent 1px);
@@ -66,7 +70,7 @@ textarea::placeholder{color:var(--mut)}
 
 /* spotlight ring that appears on selected bubble */
 .spotlight{position:absolute;border-radius:50%;pointer-events:none;z-index:5;
-  border:2px solid #fff;opacity:0;transition:opacity .1s}
+  border:2px solid var(--ring);opacity:0;transition:opacity .1s}
 
 /* ── TEAM SLOTS ── */
 #slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
@@ -81,7 +85,7 @@ textarea::placeholder{color:var(--mut)}
 /* ── BUBBLE element ── */
 .bbl{position:absolute;border-radius:50%;display:flex;align-items:center;justify-content:center;
   font-weight:500;color:var(--txt);border:0.5px solid var(--brd2);
-  user-select:none;pointer-events:none;background:#1c1c28;
+  user-select:none;pointer-events:none;background:var(--bbl);
   transition:box-shadow .2s}
 
 /* ── DONE ── */
@@ -99,6 +103,7 @@ textarea::placeholder{color:var(--mut)}
 </head>
 <body>
 <div class="flash-ov" id="fov"></div>
+<div class="theme-tg"><button id="th-dark" onclick="setTheme('dark')">🌙 검정</button><button id="th-light" onclick="setTheme('light')">☀️ 흰색</button></div>
 <div class="page">
 
   <div class="hdr">
@@ -158,6 +163,7 @@ const PAL=[
   {bg:'#f0b850',dk:'#261804'},{bg:'#e05050',dk:'#220808'},
   {bg:'#50d4d4',dk:'#061a1a'},{bg:'#c090f0',dk:'#160c2c'},
 ];
+const dkOf=c=>document.documentElement.getAttribute('data-theme')==='light'?c.bg+'22':c.dk;   // 흰 배경에선 연한 틴트
 const SLBLS=['극저속','매우 느림','느림','조금 느림','보통','조금 빠름','빠름','매우 빠름','초고속','광속'];
 
 let groups=[], allBubbles=[], T=[], rafId=null, speedVal=5;
@@ -181,6 +187,12 @@ $('speed').addEventListener('input',function(){
   $('sval').textContent=SLBLS[speedVal-1];
 });
 
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  $('th-dark').classList.toggle('on',t==='dark'); $('th-light').classList.toggle('on',t==='light');
+  try{localStorage.setItem('teams:theme',t)}catch(e){}
+}
+(function(){ let t='dark'; try{t=localStorage.getItem('teams:theme')||'dark'}catch(e){} document.documentElement.setAttribute('data-theme',t); document.addEventListener('DOMContentLoaded',()=>setTheme(t)); })();
 function updateCount(){
   const raw=$('names').value.split(',').map(s=>s.trim()).filter(Boolean);
   const uniq=new Set(raw), dup=raw.length-uniq.size, n=Math.min(raw.length,100), gs=Math.max(1,+$('gsize').value||5);
@@ -257,7 +269,7 @@ function initArena(){
     const d=document.createElement('div');
     d.className='slot'; d.id='slot-'+gi;
     d.style.borderColor=c.bg+'44';
-    d.style.background=c.dk;
+    d.style.background=dkOf(c);
     d.innerHTML=`<div class="slot-hd" style="background:${c.bg}22;border-bottom:0.5px solid ${c.bg}44">
       <span class="slot-hd-name" style="color:${c.bg}">${gi+1}조</span>
       <span class="slot-hd-cnt" id="sc-${gi}" style="color:${c.bg}">0/${groups[gi].length}</span>
@@ -331,7 +343,7 @@ function doPick(){
   /* PHASE 1: spotlight — flash bubble, freeze-ish */
   const c=PAL[item.gi%PAL.length];
   bub.div.style.transition='background .25s,border-color .25s,box-shadow .25s,width .25s,height .25s,font-size .25s';
-  bub.div.style.background=c.dk;
+  bub.div.style.background=dkOf(c);
   bub.div.style.borderColor=c.bg;
   bub.div.style.boxShadow=`0 0 18px ${c.bg}cc, 0 0 40px ${c.bg}55`;
   bub.div.style.zIndex='10';
@@ -385,7 +397,7 @@ function doPick(){
         totalPicked++;
         const filled=groups[item.gi].filter((_,pi)=>pi<=item.pi).length;
         document.getElementById('sc-'+item.gi).textContent=
-          totalPicked+'/'+totalNames;
+          filled+'/'+groups[item.gi].length;   // 이 조에 들어온 인원 / 이 조 정원
         $('pool-cnt').textContent=`${totalNames-totalPicked}명 대기`;
         setBar(45+Math.round((totalPicked/totalNames)*52));
         setPhase(`${totalPicked}번째 배정 — ${item.gi+1}조에 ${item.name}!`);
