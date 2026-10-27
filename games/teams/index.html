@@ -108,7 +108,7 @@ textarea::placeholder{color:var(--mut)}
   <!-- SETUP -->
   <div id="setup">
     <div class="frow">
-      <div class="fld"><label>조당 인원</label><input type="number" id="gsize" value="5" min="1" max="50"/></div>
+      <div class="fld"><label>조당 인원</label><input type="number" id="gsize" value="5" min="1" max="50" oninput="updateCount()"/></div>
     </div>
     <div class="srow">
       <label>추첨 속도</label>
@@ -116,8 +116,8 @@ textarea::placeholder{color:var(--mut)}
       <span class="sval" id="sval">보통</span>
     </div>
     <div class="fld">
-      <label>참가자 이름 (쉼표 구분 · 최대 100명)</label>
-      <textarea id="names" placeholder="예: 김병현, 라경민, 최다해, 명재홍, 김형철, 유민혜, 이은호, 이정준..."></textarea>
+      <label style="display:flex;justify-content:space-between;align-items:baseline">참가자 이름 (쉼표 구분 · 최대 100명)<span id="ncount" style="text-transform:none;letter-spacing:0;font-size:13px;font-weight:700;color:var(--acc)">0명</span></label>
+      <textarea id="names" placeholder="예: 김병현, 라경민, 최다해, 명재홍, 김형철, 유민혜, 이은호, 이정준..." oninput="updateCount()"></textarea>
     </div>
     <button class="btn-go" onclick="begin()">추첨 시작</button>
   </div>
@@ -181,6 +181,16 @@ $('speed').addEventListener('input',function(){
   $('sval').textContent=SLBLS[speedVal-1];
 });
 
+function updateCount(){
+  const raw=$('names').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const uniq=new Set(raw), dup=raw.length-uniq.size, n=Math.min(raw.length,100), gs=Math.max(1,+$('gsize').value||5);
+  const groups=n?Math.ceil(n/gs):0, rem=n%gs;
+  let t=`${n}명`;
+  if(n) t+=` → ${gs}명씩 ${groups}조`+(rem?` (마지막 조 ${rem}명)`:'');
+  if(dup) t+=` · 중복 ${dup}`;
+  if(raw.length>100) t+=` · 100명 초과분 제외`;
+  $('ncount').textContent=t;
+}
 function getNames(){
   return $('names').value.split(',').map(s=>s.trim()).filter(Boolean).slice(0,100);
 }
@@ -412,6 +422,7 @@ function resetAll(){
   $('pb').style.width='0'; $('ph').textContent='';
   hide('done-btn');
 }
+document.addEventListener('DOMContentLoaded',updateCount);
 </script>
 <script src="../../shared/home.js"></script>
 </body>
