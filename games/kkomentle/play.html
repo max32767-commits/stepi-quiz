@@ -99,7 +99,12 @@ if (!window.sb) throw new Error("Supabase 설정 없음");
 
 const $ = id => document.getElementById(id);
 
+// 라운드 표시 번호: DB id에서 kk_meta.round_offset을 뺀 값(진행자가 '라운드 번호 초기화'를 누르면 1부터 다시)
+let ROUND_OFFSET = 0;
+async function loadOffset() { const { data } = await sb.from('kk_meta').select('value').eq('key', 'round_offset').maybeSingle(); ROUND_OFFSET = data ? +data.value || 0 : 0; }
+const roundNo = id => Math.max(1, id - ROUND_OFFSET);
 let me = "", roundId = null, roundRow = null, bench = null;
+loadOffset(); setInterval(loadOffset, 30000);
 let guesses = [], latestId = null;
 let channel = null, pollTimer = null, autoNext = null;
 
@@ -126,6 +131,7 @@ async function loadRound() {
   const { data, error } = await sb.rpc("current_round", { p_player: me });
   if (error) return msg(error.message);
   if (data !== roundId) {
+    await loadOffset();
     roundId = data; guesses = []; latestId = null; bench = null;
     $("done").hidden = true; $("next").hidden = true;
     $("guess").disabled = $("submit").disabled = false;
@@ -140,7 +146,7 @@ async function loadRound() {
 }
 function renderIntro() {
   if (!roundId) return;
-  let t = `${roundId}번째 꼬맨틀입니다. `;
+  let t = `${roundNo(roundId)}번째 꼬맨틀입니다. `;
   if (bench && bench.top1 != null)
     t += `정답 단어와 가장 유사한 단어의 유사도는 ${fmt(bench.top1)}, 10번째로 유사한 단어의 유사도는 ${fmt(bench.top10)}, 1,000번째로 유사한 단어의 유사도는 ${fmt(bench.top1000)}입니다.`;
   $("intro").textContent = t;

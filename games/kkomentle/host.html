@@ -49,6 +49,7 @@
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
         <button class="btn orange" id="start">이 단어로 새 라운드 시작</button>
         <button class="btn ghost" id="random">랜덤 정답으로 새 라운드</button>
+        <button class="btn sm ghost" id="reset-no" type="button" title="기록은 그대로 두고 표시되는 라운드 번호만 1부터 다시 셉니다">라운드 번호 1부터</button>
       </div>
       <div id="msg"></div>
       <div class="hint">※ 새 라운드를 열면 지금 진행 중인 라운드는 끝나고 그 정답이 공개됩니다. 사전(약 12만 8천 단어)에 있는 단어만 정답이 될 수 있어요.</div>
@@ -79,13 +80,18 @@ const $ = id => document.getElementById(id);
 const msg = (t, cls) => { $('msg').textContent = t; $('msg').className = cls || ''; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let PIN = null;
-STEPI_PIN.require().then(p => { PIN = p; warm(); setInterval(warm, 4 * 60 * 1000); loadAnswer(); });
+STEPI_PIN.require().then(async p => { PIN = p; warm(); setInterval(warm, 4 * 60 * 1000); await loadOffset(); loadAnswer(); refresh(); });
+setInterval(loadOffset, 30000);
 // 단어 벡터 인덱스(200MB)가 메모리에서 밀려나면 첫 검색이 10초 넘게 걸리므로, 진행자 화면이 열려 있는 동안 미리 데워 둔다
 function warm() { sb.rpc('warm_up').then(({ error }) => { if (error) console.warn('warm_up', error.message); }); }
 
 const playUrl = location.href.replace(/host\.html.*$/, 'play.html');
 new QRCode($('qr'), { text: playUrl, width: 220, height: 220, colorDark: '#373282' }); $('url').textContent = playUrl;
 
+// 라운드 표시 번호: DB id에서 kk_meta.round_offset을 뺀 값(진행자가 '라운드 번호 초기화'를 누르면 1부터 다시)
+let ROUND_OFFSET = 0;
+async function loadOffset() { const { data } = await sb.from('kk_meta').select('value').eq('key', 'round_offset').maybeSingle(); ROUND_OFFSET = data ? +data.value || 0 : 0; }
+const roundNo = id => Math.max(1, id - ROUND_OFFSET);
 let answerShown = false, curAnswer = null, curAnswerRound = null;
 async function loadAnswer() {
   if (!PIN) return;
@@ -102,7 +108,7 @@ async function refresh() {
   const { data } = await sb.rpc('round_status');
   if (data && data.id !== curAnswerRound) loadAnswer();
   if (!data) { $('s-round').textContent = '없음'; $('s-players').textContent = $('s-guesses').textContent = '0'; $('best').innerHTML = ''; return; }
-  $('s-round').textContent = data.id + '번째'; $('s-players').textContent = data.players; $('s-guesses').textContent = data.guesses;
+  $('s-round').textContent = roundNo(data.id) + '번째'; $('s-players').textContent = data.players; $('s-guesses').textContent = data.guesses;
   $('best').innerHTML = (data.best || []).map(b => `<tr><td>${esc(b.word)}</td><td>${esc(b.player)}</td><td class="n">${(b.similarity * 100).toFixed(2)}</td><td class="n">${b.rank == null ? '1000위 밖' : b.rank === 0 ? '정답' : b.rank + '위'}</td></tr>`).join('');
 }
 refresh(); setInterval(refresh, 4000);
@@ -126,11 +132,17 @@ async function start(word) {
   $('start').disabled = $('random').disabled = false;
   if (error) { msg(error.message.replace(/^.*?: /, ''), 'bad'); if (/PIN/.test(error.message)) { STEPI_PIN.clear(); PIN = await STEPI_PIN.require(); } return; }
   await loadAnswer();
-  msg(`${data}번째 라운드를 열었어요 · 정답: ${curAnswer || '(확인 중)'} — 참가자 화면에 자동으로 안내됩니다.`, 'ok');
+  msg(`${roundNo(data)}번째 라운드를 열었어요 · 정답: ${curAnswer || '(확인 중)'} — 참가자 화면에 자동으로 안내됩니다.`, 'ok');
   $('word').value = ''; $('check').textContent = ''; refresh();
 }
 $('start').onclick = () => { const w = $('word').value.trim(); if (!w) return msg('단어를 입력하세요', 'bad'); start(w); };
 $('random').onclick = () => start('');
+$('reset-no').onclick = async () => {
+  if (!PIN || !confirm('라운드 번호를 1부터 다시 셀까요? (기록은 지워지지 않고 번호만 바뀝니다. 진행 중인 라운드가 있으면 그 라운드가 1번이 됩니다)')) return;
+  const { error } = await sb.rpc('reset_round_counter', { p_pin: PIN });
+  if (error) return msg(error.message.replace(/^.*?: /, ''), 'bad');
+  await loadOffset(); refresh(); msg('라운드 번호를 1부터 다시 셉니다. 참가자·큰 화면도 30초 안에 바뀝니다.', 'ok');
+};
 
 let ft = null;
 $('find').oninput = () => {

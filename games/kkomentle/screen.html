@@ -78,7 +78,12 @@ const playUrl = location.href.replace(/screen\.html.*$/, 'play.html');
 try { new QRCode($('qr'), { text: playUrl, width: 250, height: 250, colorDark: '#373282' }); } catch (e) { $('qr').textContent = 'QR 라이브러리를 불러오지 못했어요 — 아래 주소로 접속'; }
 $('url').textContent = playUrl;
 
+// 라운드 표시 번호: DB id에서 kk_meta.round_offset을 뺀 값(진행자가 '라운드 번호 초기화'를 누르면 1부터 다시)
+let ROUND_OFFSET = 0;
+async function loadOffset() { const { data } = await sb.from('kk_meta').select('value').eq('key', 'round_offset').maybeSingle(); ROUND_OFFSET = data ? +data.value || 0 : 0; }
+const roundNo = id => Math.max(1, id - ROUND_OFFSET);
 let roundId = null, guesses = [], channel = null, latestId = null, shownDone = null, renderTimer = null;
+setInterval(loadOffset, 30000);
 async function loadRound() {
   const { data: r } = await sb.from('rounds').select('id,finished_at,winner,gave_up,created_at').order('id', { ascending: false }).limit(1).maybeSingle();
   if (!r) return;
@@ -86,7 +91,7 @@ async function loadRound() {
     roundId = r.id; guesses = []; latestId = null; $('banner').classList.remove('on');
     const { data: rows } = await sb.from('guesses').select('*').eq('round_id', roundId).order('created_at');
     const seen = new Set(); guesses = (rows || []).filter(g => !seen.has(g.word) && seen.add(g.word));
-    $('round').textContent = `${roundId}번째 라운드`;
+    await loadOffset(); $('round').textContent = `${roundNo(roundId)}번째 라운드`;
     subscribe(); render();
   }
   if (r.finished_at && shownDone !== r.id) { shownDone = r.id; showDone(r); }
