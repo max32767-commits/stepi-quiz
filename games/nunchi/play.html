@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<title>눈치 게임 — 참가</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="../ox/ox.css">
+<style>
+  html,body{overscroll-behavior:none}
+  #pad{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#fff;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;padding:24px;z-index:50}
+  #pad.on{display:flex}
+  #pad.wait{background:#1b2230}#pad.live{background:#14532d}#pad.called{background:#373282}#pad.ok{background:#0f766e}#pad.bad{background:#7f1d1d}
+  #pad .count{font-size:clamp(70px,28vw,160px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+  #pad .lbl{font-size:18px;font-weight:700;opacity:.85;margin-top:6px}
+  #pad .sub{font-size:20px;font-weight:700;opacity:.9;margin-top:14px}
+  #pad .shout{margin-top:28px;width:min(80vw,320px);height:min(80vw,320px);border-radius:50%;border:0;background:#ED911A;color:#fff;font-size:clamp(28px,9vw,44px);font-weight:900;box-shadow:0 12px 40px rgba(0,0,0,.35);transition:transform .08s}
+  #pad .shout:active{transform:scale(.95)}#pad .shout:disabled{opacity:.35}
+  #pad .score{position:absolute;top:18px;right:18px;background:rgba(255,255,255,.18);padding:6px 14px;border-radius:999px;font-weight:800}
+  #pad .rno{position:absolute;top:18px;left:18px;background:rgba(255,255,255,.18);padding:6px 14px;border-radius:999px;font-weight:800}
+  #pad .list{margin-top:16px;font-size:14px;opacity:.85;max-height:28vh;overflow:auto;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="play">
+  <div class="topbar" style="border-radius:14px;border:1px solid var(--line)">
+    <a class="brand" href="../../"><img src="../../assets/logo-word.png" alt="STEPI" style="height:26px"><img src="../../assets/logo-dots.png" alt="" style="height:20px"></a>
+    <span class="pill">👀 눈치 게임</span>
+  </div>
+  <section id="join" class="card">
+    <h2>참가하기</h2>
+    <p class="muted">큰 화면의 4자리 코드와 이름을 넣으세요.</p>
+    <input class="code" id="code" inputmode="numeric" maxlength="4" placeholder="0000">
+    <input class="name" id="name" maxlength="12" placeholder="이름 (예: 홍길동)" autocomplete="off" style="margin:10px 0 14px">
+    <button class="btn orange" id="go">입장</button>
+    <p class="muted" id="join-msg" style="margin:10px 0 0"></p>
+  </section>
+  <section id="wait" class="card hidden" style="text-align:center;padding:40px 20px">
+    <div style="font-size:52px">👀</div>
+    <h2 id="wait-title">입장 완료!</h2>
+    <p class="muted">진행자가 시작하면 화면이 바뀝니다.<br>눈치껏 버튼을 눌러 번호를 외치세요. 동시에 누르면 탈락!</p>
+  </section>
+</div>
+
+<div id="pad" class="wait">
+  <div class="rno" id="rno"></div><div class="score" id="score"></div>
+  <div class="count" id="count">0</div><div class="lbl" id="lbl">까지 나왔어요</div>
+  <div class="sub" id="sub"></div>
+  <button class="shout" id="shout">외치기!</button>
+  <div class="list" id="list"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../../shared/supabase-config.js"></script>
+<script src="../../shared/supabase-client.js"></script>
+<script>
+if (!window.sb) throw new Error('Supabase 설정 없음');
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const qs = new URLSearchParams(location.search);
+let code = (qs.get('room') || '').replace(/\D/g, '').slice(0, 4), me = null, room = null, myScore = 0, curRound = 0, presses = [], mine = null, players = {}, shown = false;
+$('code').value = code; try { $('name').value = localStorage.getItem('stepi:name') || ''; } catch (e) {}
+if (code) $('name').focus();
+
+$('go').onclick = async () => {
+  code = $('code').value.replace(/\D/g, ''); const name = $('name').value.trim();
+  if (code.length !== 4) return $('join-msg').textContent = '코드 4자리를 입력하세요.';
+  if (!name) return $('join-msg').textContent = '이름을 입력하세요.';
+  $('go').disabled = true; $('join-msg').textContent = '입장 중…';
+  let pid = null; try { pid = +localStorage.getItem('nz:' + code) || null; } catch (e) {}
+  const { data, error } = await sb.rpc('nz_join', { p_code: code, p_name: name, p_pid: pid });
+  if (error) { $('go').disabled = false; return $('join-msg').textContent = error.message.replace(/^.*?: /, ''); }
+  me = data; myScore = me.score || 0; try { localStorage.setItem('nz:' + code, me.id); localStorage.setItem('stepi:name', name); } catch (e) {}
+  show('wait'); subscribe();
+};
+$('name').onkeydown = e => { if (e.key === 'Enter') $('go').click(); };
+
+function subscribe() {
+  sb.channel('nz-play-' + code + '-' + me.id)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'nz_rooms', filter: 'code=eq.' + code }, p => onRoom(p.new))
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'nz_presses', filter: 'room_code=eq.' + code }, p => { if (room && p.new.round_no === curRound) addPress(p.new); })
+    .subscribe();
+  const poll = async () => {
+    const [{ data: r }, { data: ps }] = await Promise.all([sb.from('nz_rooms').select('*').eq('code', code).maybeSingle(), sb.from('nz_players').select('id,name').eq('room_code', code)]);
+    (ps || []).forEach(p => players[p.id] = p.name);
+    if (r) { onRoom(r); if (r.phase === 'round') { const { data: pr } = await sb.from('nz_presses').select('*').eq('room_code', code).eq('round_no', r.round_no).order('ts'); (pr || []).forEach(addPress); } }
+  };
+  poll(); setInterval(poll, 2500);
+}
+function show(id) { ['join', 'wait'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
+function pad(cls) { $('pad').className = cls + ' on'; $('score').textContent = '내 점수 ' + myScore; $('rno').textContent = room ? `라운드 ${room.round_no}/${room.total_rounds}` : ''; }
+function onRoom(r) {
+  room = r;
+  if (r.phase === 'lobby') { curRound = 0; myScore = 0; shown = false; $('pad').className = 'wait'; show('wait'); return; }
+  if (r.phase === 'round' && r.round_no !== curRound) {
+    curRound = r.round_no; presses = []; mine = null; shown = false;
+    pad('live'); $('count').textContent = '0'; $('lbl').textContent = '까지 나왔어요'; $('sub').textContent = '눈치껏! 다음 번호를 외치세요'; $('shout').disabled = false; $('shout').textContent = '1 외치기!'; $('list').textContent = '';
+    if (navigator.vibrate) navigator.vibrate(40);
+    return;
+  }
+  if ((r.phase === 'result' || r.phase === 'done') && r.round_no === curRound && !shown) showResult(r.phase === 'done');
+}
+function addPress(p) {
+  if (presses.some(x => x.player_id === p.player_id)) return;
+  presses.push(p); presses.sort((a, b) => new Date(a.ts) - new Date(b.ts));
+  if (room && room.phase === 'round' && !mine) { $('count').textContent = presses.length; $('shout').textContent = (presses.length + 1) + ' 외치기!'; }
+  $('list').innerHTML = presses.map((x, i) => `${i + 1}. ${esc(players[x.player_id] || (x.player_id === me.id ? me.name : '…'))}`).join('<br>');
+}
+$('shout').addEventListener('pointerdown', async e => {
+  e.preventDefault(); if (!room || room.phase !== 'round' || mine) return;
+  $('shout').disabled = true; if (navigator.vibrate) navigator.vibrate(30);
+  const { data, error } = await sb.rpc('nz_press', { p_code: code, p_round: curRound, p_pid: me.id });
+  if (error) { $('sub').textContent = error.message.replace(/^.*?: /, ''); $('shout').disabled = false; return; }
+  mine = data.number; pad('called'); $('count').textContent = mine; $('lbl').textContent = '을(를) 외쳤어요'; $('sub').textContent = '다른 사람과 겹치지 않았기를… 결과는 마감 후에'; $('shout').textContent = '외침 완료';
+  addPress({ player_id: me.id, round_no: curRound, ts: data.ts });
+});
+async function showResult(done) {
+  shown = true;
+  const { data } = await sb.rpc('nz_round_results', { p_code: code, p_round: curRound });
+  const rows = (data && data.rows) || [], my = rows.find(x => x.player_id === me.id);
+  if (my) myScore = my.score;
+  const out = rows.filter(x => x.status !== 'ok').map(x => x.name);
+  if (!my) pad('wait');
+  else if (my.status === 'ok') { pad('ok'); $('count').textContent = my.number; $('lbl').textContent = '번 · 생존!'; $('sub').textContent = '+10점' + (out.length ? ' · 탈락: ' + out.join(', ') : ' · 전원 생존'); }
+  else { pad('bad'); $('count').textContent = my.number == null ? '🤐' : my.number; $('lbl').textContent = my.status === 'collide' ? '번 · 동시에 외쳐서 탈락 💥' : my.status === 'last' ? '번 · 마지막까지 남아서 탈락 🐢' : '안 외쳐서 탈락'; $('sub').textContent = out.length > 1 ? '같이 탈락: ' + out.filter(n => n !== me.name).join(', ') : '혼자 탈락…'; }
+  $('shout').disabled = true; $('shout').textContent = done ? '게임 끝' : '다음 라운드 대기';
+  if (navigator.vibrate) navigator.vibrate(my && my.status === 'ok' ? [30, 60, 30] : 200);
+  if (done) setTimeout(() => { $('sub').textContent = '게임 끝! 최종 순위는 큰 화면에서 🏆'; }, 2500);
+}
+</script>
+</body>
+</html>

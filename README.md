@@ -19,6 +19,8 @@
 | 🎱 실시간 로또 `games/lotto` | 진행자 큰 화면 + 참가자 휴대폰 | Supabase | 폰으로 6개 번호 선택 → 큰 화면 추첨 → 맞힌 수로 1·2·3등(인원 설정) |
 | ⚡ 반응속도 대결 `games/reaction` | 진행자 큰 화면 + 참가자 휴대폰 | Supabase | 동시에 바뀌는 신호에 가장 빨리 누르기, 페이크(STOP) 라운드 포함, 총점 1위 우승 |
 | 🤝 공통점 찾기 `games/common` | 진행자 큰 화면 + 참가자 휴대폰 | Supabase | 양자택일 질문에 답하면 같은 답끼리 모이고, 끝나면 가장 잘 맞는 짝 TOP 5 |
+| 👀 눈치 게임 `games/nunchi` | 진행자 큰 화면 + 참가자 휴대폰 | Supabase | 눈치껏 번호 외치기, 동시(0.15초)·마지막·침묵 탈락, 생존 +10점 |
+| ⏱️ 인간 스톱워치 `games/stopwatch` | 진행자 큰 화면 + 참가자 휴대폰 | Supabase | 목표 시간을 감으로 맞추기, 오차 순 점수, 랜덤 목표 옵션 |
 | 🧠 꼬맨틀 `games/kkomentle` | 여럿이 휴대폰 | Supabase | 단어 의미 유사도 추측 협동 게임 |
 
 새 게임 추가: `games/<id>/index.html` 폴더를 만들고 `games.js` 배열에 한 줄 추가. 각 게임 페이지 끝에 `<script src="../../shared/home.js"></script>`를 넣으면 "랜덤 게임 홈" 버튼이 붙습니다.
@@ -83,6 +85,11 @@ Supabase 프로젝트 `stepi-quiz`에 연결돼 있고(`shared/supabase-config.j
 - 진행자: `games/common/host.html` (PIN) → 질문 목록(`질문 | 왼쪽 답 | 오른쪽 답`, 기본 17문항 내장) → **방 만들기** → QR 입장 → **첫 질문 시작** → 참가자가 폰에서 고르면 **결과 보기**(같은 답끼리 명단·비율) → **다음 질문** … → 마지막에 **가장 많이 겹친 짝 TOP 5**
 - 참가자 폰: 답 마감 후 자기 편 인원·이름이 보이고, 끝나면 "나와 가장 잘 맞는 사람 TOP 5"(일치 수·%)가 나온다. 점수 없음.
 - 테이블 cm_rooms / cm_players / cm_answers, RPC cm_create_room(pin, questions) / cm_join / cm_answer / cm_set_phase / cm_tally / cm_matches / cm_top_pairs
+
+## 눈치 게임 · 인간 스톱워치 메모
+
+- 눈치: `nz_press` 가 서버 시각(clock_timestamp)으로 기록, `nz_end_round` 가 앞뒤 사람과 window_ms(기본 150) 안이면 collide, 전원 외쳤으면 마지막 last, 안 외치면 silent. 생존 +10. 진행자 화면은 전원 외치면 0.6초 뒤 자동 마감, 제한 시간(기본 30초) 지나도 자동 마감.
+- 스톱워치: 폰이 로컬로 잰 경과(ms)를 `sw_submit` 으로 보내고, 서버는 라운드 시작 후 실제 지난 시간+1.5초보다 긴 기록을 거른다. 오차 순 10·9·8…(최소 1), 미제출 0. random 모드는 라운드마다 3.00~10.00초.
 
 ## 로컬 실행
 

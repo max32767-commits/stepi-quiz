@@ -435,3 +435,10 @@ alter policy ox_answers_insert on ox_answers with check (false);   -- 제출은 
 --   부하 테스트: 200회 연속 추측 avg 16ms / p95 17ms / max 29ms (캐시 적중 시). 50명이 3초마다 추측해도 CPU 30% 수준.
 
 -- 스피드 퀴즈 채점 정규화 ox_norm(t): 소문자화 + 공백·문장부호·기호 제거(한글/영문/숫자만 남김) + 전각 영숫자 → 반각. 정답 후보(/ 구분)와 제출 답 양쪽에 적용.
+
+-- ---------------------------------------------------------------- 눈치 게임 (nz_*) / 인간 스톱워치 (sw_*)
+-- nz_rooms(code, phase lobby|round|result|done, round_no, total_rounds, window_ms) / nz_players / nz_presses(ts 서버시각, unique round·player) / nz_results(number, status ok|collide|last|silent, points)
+-- RPC nz_create_room(pin, rounds, window) / nz_join / nz_start_round(pin, code) / nz_press(code, round, pid) → {number, ts} / nz_end_round(pin, code) → 결과 / nz_round_results / nz_set_phase
+-- sw_rooms(code, phase, round_no, total_rounds, mode fixed|random, target_ms, started_at) / sw_players / sw_results(elapsed_ms, error_ms, points)
+-- RPC sw_create_room(pin, rounds, mode, target) / sw_join / sw_start_round(pin, code) → {round_no, target_ms} / sw_submit(code, round, pid, elapsed_ms) / sw_end_round / sw_round_results / sw_set_phase
+-- 전체 정의는 마이그레이션 nunchi_and_stopwatch 참고

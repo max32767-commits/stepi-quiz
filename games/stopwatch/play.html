@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<title>인간 스톱워치 — 참가</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="../ox/ox.css">
+<style>
+  html,body{overscroll-behavior:none}
+  #pad{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#fff;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;padding:24px;z-index:50}
+  #pad.on{display:flex}
+  #pad.wait{background:#1b2230}#pad.ready{background:#0f3d5c}#pad.running{background:#14532d}#pad.stopped{background:#373282}#pad.good{background:#0f766e}#pad.bad{background:#7f1d1d}
+  #pad .tgt{font-size:18px;font-weight:700;opacity:.85}
+  #pad .big{font-size:clamp(44px,14vw,90px);font-weight:900;line-height:1.1;font-variant-numeric:tabular-nums;margin-top:6px}
+  #pad .sub{font-size:18px;font-weight:700;opacity:.9;margin-top:10px;min-height:1.5em}
+  #pad .btn-big{margin-top:28px;width:min(78vw,300px);height:min(78vw,300px);border-radius:50%;border:0;color:#fff;font-size:clamp(30px,10vw,48px);font-weight:900;box-shadow:0 12px 40px rgba(0,0,0,.35);transition:transform .08s}
+  #pad .btn-big:active{transform:scale(.95)}#pad .btn-big:disabled{opacity:.3}
+  #pad.ready .btn-big{background:#ED911A}#pad.running .btn-big{background:#d6453d;animation:pulse 1s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(214,69,61,.6)}70%{box-shadow:0 0 0 30px rgba(214,69,61,0)}100%{box-shadow:0 0 0 0 rgba(214,69,61,0)}}
+  #pad .score{position:absolute;top:18px;right:18px;background:rgba(255,255,255,.18);padding:6px 14px;border-radius:999px;font-weight:800}
+  #pad .rno{position:absolute;top:18px;left:18px;background:rgba(255,255,255,.18);padding:6px 14px;border-radius:999px;font-weight:800}
+</style>
+</head>
+<body>
+<div class="play">
+  <div class="topbar" style="border-radius:14px;border:1px solid var(--line)">
+    <a class="brand" href="../../"><img src="../../assets/logo-word.png" alt="STEPI" style="height:26px"><img src="../../assets/logo-dots.png" alt="" style="height:20px"></a>
+    <span class="pill">⏱️ 인간 스톱워치</span>
+  </div>
+  <section id="join" class="card">
+    <h2>참가하기</h2>
+    <p class="muted">큰 화면의 4자리 코드와 이름을 넣으세요.</p>
+    <input class="code" id="code" inputmode="numeric" maxlength="4" placeholder="0000">
+    <input class="name" id="name" maxlength="12" placeholder="이름 (예: 홍길동)" autocomplete="off" style="margin:10px 0 14px">
+    <button class="btn orange" id="go">입장</button>
+    <p class="muted" id="join-msg" style="margin:10px 0 0"></p>
+  </section>
+  <section id="wait" class="card hidden" style="text-align:center;padding:40px 20px">
+    <div style="font-size:52px">⏱️</div>
+    <h2 id="wait-title">입장 완료!</h2>
+    <p class="muted">진행자가 시작하면 화면이 바뀝니다.<br>시작을 누르고, 감으로 딱 목표 시간에 정지!</p>
+  </section>
+</div>
+
+<div id="pad" class="wait">
+  <div class="rno" id="rno"></div><div class="score" id="score"></div>
+  <div class="tgt" id="tgt"></div>
+  <div class="big" id="big">준비…</div>
+  <div class="sub" id="sub"></div>
+  <button class="btn-big" id="btn">시작</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../../shared/supabase-config.js"></script>
+<script src="../../shared/supabase-client.js"></script>
+<script>
+if (!window.sb) throw new Error('Supabase 설정 없음');
+const $ = id => document.getElementById(id);
+const sec = ms => (ms / 1000).toFixed(2);
+const qs = new URLSearchParams(location.search);
+let code = (qs.get('room') || '').replace(/\D/g, '').slice(0, 4), me = null, room = null, myScore = 0, curRound = 0, state = 'idle', t0 = 0, shown = false;
+$('code').value = code; try { $('name').value = localStorage.getItem('stepi:name') || ''; } catch (e) {}
+if (code) $('name').focus();
+
+$('go').onclick = async () => {
+  code = $('code').value.replace(/\D/g, ''); const name = $('name').value.trim();
+  if (code.length !== 4) return $('join-msg').textContent = '코드 4자리를 입력하세요.';
+  if (!name) return $('join-msg').textContent = '이름을 입력하세요.';
+  $('go').disabled = true; $('join-msg').textContent = '입장 중…';
+  let pid = null; try { pid = +localStorage.getItem('sw:' + code) || null; } catch (e) {}
+  const { data, error } = await sb.rpc('sw_join', { p_code: code, p_name: name, p_pid: pid });
+  if (error) { $('go').disabled = false; return $('join-msg').textContent = error.message.replace(/^.*?: /, ''); }
+  me = data; myScore = me.score || 0; try { localStorage.setItem('sw:' + code, me.id); localStorage.setItem('stepi:name', name); } catch (e) {}
+  show('wait'); subscribe();
+};
+$('name').onkeydown = e => { if (e.key === 'Enter') $('go').click(); };
+function subscribe() {
+  sb.channel('sw-play-' + code + '-' + me.id)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sw_rooms', filter: 'code=eq.' + code }, p => onRoom(p.new))
+    .subscribe();
+  const poll = async () => { const { data: r } = await sb.from('sw_rooms').select('*').eq('code', code).maybeSingle(); if (r) onRoom(r); };
+  poll(); setInterval(poll, 2500);
+}
+function show(id) { ['join', 'wait'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
+function pad(cls) { $('pad').className = cls + ' on'; $('score').textContent = '내 점수 ' + myScore; $('rno').textContent = room ? `라운드 ${room.round_no}/${room.total_rounds}` : ''; }
+function onRoom(r) {
+  room = r;
+  if (r.phase === 'lobby') { curRound = 0; myScore = 0; state = 'idle'; shown = false; $('pad').className = 'wait'; show('wait'); return; }
+  if (r.phase === 'round' && r.round_no !== curRound) {
+    curRound = r.round_no; state = 'ready'; shown = false;
+    pad('ready'); $('tgt').textContent = '목표 시간'; $('big').textContent = sec(r.target_ms) + '초'; $('sub').textContent = '시작을 누르고, 감으로 딱 맞춰 정지하세요'; $('btn').textContent = '시작'; $('btn').disabled = false;
+    if (navigator.vibrate) navigator.vibrate(40);
+    return;
+  }
+  if (r.phase === 'round' && state === 'running') return;   // 진행 중엔 화면 유지
+  if ((r.phase === 'result' || r.phase === 'done') && r.round_no === curRound && !shown) showResult(r.phase === 'done');
+}
+$('btn').addEventListener('pointerdown', async e => {
+  e.preventDefault(); if (!room || room.phase !== 'round') return;
+  if (state === 'ready') {
+    state = 'running'; t0 = performance.now(); pad('running'); $('big').textContent = '⏱'; $('sub').textContent = '…재는 중… 목표 ' + sec(room.target_ms) + '초'; $('btn').textContent = '정지';
+    if (navigator.vibrate) navigator.vibrate(20); return;
+  }
+  if (state === 'running') {
+    const el = Math.round(performance.now() - t0); state = 'stopped'; $('btn').disabled = true; if (navigator.vibrate) navigator.vibrate(30);
+    pad('stopped'); $('big').textContent = sec(el) + '초'; $('sub').textContent = '제출 중…';
+    const { data, error } = await sb.rpc('sw_submit', { p_code: code, p_round: curRound, p_pid: me.id, p_elapsed_ms: el });
+    if (error) { $('sub').textContent = error.message.replace(/^.*?: /, ''); return; }
+    const d = el - data.target_ms;
+    $('sub').textContent = `목표 ${sec(data.target_ms)}초 · 오차 ${d >= 0 ? '+' : '−'}${sec(Math.abs(d))}초 — 순위는 마감 후에`;
+  }
+});
+async function showResult(done) {
+  shown = true;
+  const { data } = await sb.rpc('sw_round_results', { p_code: code, p_round: curRound });
+  const rows = (data && data.rows) || [], my = rows.find(x => x.player_id === me.id), ok = rows.filter(x => x.elapsed_ms != null), rank = my && my.elapsed_ms != null ? ok.findIndex(x => x.player_id === me.id) + 1 : 0;
+  if (my) myScore = my.score;
+  if (!my || my.elapsed_ms == null) { pad('bad'); $('big').textContent = '미제출'; $('sub').textContent = '이번 라운드는 기록이 없어요 (0점)'; }
+  else { pad(rank <= 3 ? 'good' : 'stopped'); $('big').textContent = (rank === 1 ? '🥇 ' : rank === 2 ? '🥈 ' : rank === 3 ? '🥉 ' : '') + rank + '등'; $('sub').textContent = `${sec(my.elapsed_ms)}초 · 오차 ${sec(my.error_ms)}초 · +${my.points}점 (${ok.length}명 중)`; }
+  $('btn').disabled = true; $('btn').textContent = done ? '게임 끝' : '다음 라운드 대기'; state = 'shown';
+  if (done) setTimeout(() => { $('sub').textContent += ' · 최종 순위는 큰 화면에서 🏆'; }, 2000);
+}
+</script>
+</body>
+</html>

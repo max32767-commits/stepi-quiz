@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<script src="../../shared/pin-lock.js?v=2"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>인간 스톱워치 — 진행자 화면</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="../ox/ox.css">
+<style>
+  .arena{min-height:56vh;border-radius:24px;background:#1b2230;color:#fff;padding:24px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .arena.live{background:#0f3d5c}.arena.result{background:#373282}
+  .arena .target{font-size:clamp(60px,14vw,170px);font-weight:900;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .arena .target small{font-size:.35em;font-weight:800;opacity:.8}
+  .arena .sub{font-size:clamp(16px,2.2vw,26px);opacity:.85;margin-top:10px;font-weight:700;text-align:center}
+  .rx{width:100%;max-width:760px;display:grid;gap:8px;margin-top:18px}
+  .rx .row{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.14);border-radius:12px;padding:10px 16px;font-size:20px;font-weight:800;animation:pop .3s ease-out}
+  .rx .row .medal{font-size:26px;width:34px;text-align:center}.rx .row .ms{margin-left:auto;font-variant-numeric:tabular-nums}.rx .row .err{width:110px;text-align:right;color:#ffd166;font-variant-numeric:tabular-nums}.rx .row .pts{width:60px;text-align:right;color:#b7f5c9}
+  .rx .row.miss{opacity:.6;font-size:16px}
+  @keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+  .board{display:grid;gap:6px;margin-top:10px}
+  .board .r{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;background:#f5f6fb;font-weight:700}
+  .board .r .rank{width:28px;color:var(--orange);font-weight:900}.board .r .sc{margin-left:auto;color:var(--navy);font-variant-numeric:tabular-nums}.board .r.top{background:#fff1e0}
+  .numin{width:70px;padding:6px;font:inherit;border:1px solid var(--line);border-radius:8px;text-align:center}
+  .podium{display:flex;justify-content:center;gap:18px;margin:16px 0;flex-wrap:wrap}
+  .podium .p{text-align:center;background:#f5f6fb;border-radius:18px;padding:18px 22px;min-width:150px}.podium .p .m{font-size:44px}.podium .p .n{font-size:24px;font-weight:900;color:var(--navy)}.podium .p .s{color:var(--muted);font-weight:700}.podium .p.first{background:#fff1e0;transform:scale(1.08)}
+  .awards{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:8px}.awards div{background:#eef0fa;border-radius:12px;padding:10px 16px;font-weight:700;color:var(--navy)}
+  .timer{font-size:16px;opacity:.75;margin-top:10px;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body class="host">
+<div class="topbar">
+  <a class="brand" href="../../"><img src="../../assets/logo-word.png" alt="STEPI" style="height:26px"><img src="../../assets/logo-dots.png" alt="" style="height:20px"> 랜덤 게임</a>
+  <span class="pill">⏱️ 인간 스톱워치 · 진행자</span>
+</div>
+
+<section id="setup" style="margin-top:20px">
+  <div class="setup">
+    <div class="card">
+      <h2>규칙</h2>
+      <ol style="padding-left:20px;line-height:1.9">
+        <li>큰 화면에 <b>목표 시간</b>(예: 5.00초)이 뜹니다.</li>
+        <li>참가자는 폰에서 <b>시작</b>을 누르고, 감으로 딱 그 시간이 됐다고 생각될 때 <b>정지</b>. 폰에는 시간이 보이지 않아요.</li>
+        <li>오차가 작은 순으로 10·9·8…점(최소 1점), 제출 안 하면 0점. 여러 라운드 총점 1위가 우승.</li>
+        <li>라운드마다 기록·오차 순위가 공개되고, 마지막에 총점 순위와 <b>최고 정밀도상</b>.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2>설정</h2>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin:8px 0 14px;align-items:center">
+        <label>라운드 수 <input class="numin" type="number" id="rounds" value="5" min="1" max="30"></label>
+        <label>목표 <select id="mode" style="padding:6px;border:1px solid var(--line);border-radius:8px;font:inherit"><option value="fixed">매번 같은 시간</option><option value="random">라운드마다 랜덤 (3~10초)</option></select></label>
+        <label id="targetWrap"><input class="numin" type="number" id="target" value="5.00" min="1" max="60" step="0.01"> 초</label>
+        <label>제출 제한 <input class="numin" type="number" id="limit" value="25" min="10" max="120"> 초</label>
+      </div>
+      <button class="btn orange" id="create" style="width:100%;margin-top:14px;font-size:20px;padding:16px">방 만들기</button>
+      <p class="muted" id="setup-msg" style="margin:10px 0 0"></p>
+    </div>
+  </div>
+</section>
+
+<section id="lobby" class="hidden">
+  <div class="card lobby">
+    <div class="muted">휴대폰으로 QR을 찍고 이름을 넣으세요</div>
+    <div class="big-code" id="lobby-code">0000</div>
+    <div id="lobby-qr" style="display:flex;justify-content:center;margin:16px 0"></div>
+    <div class="url" id="lobby-url"></div>
+    <div class="joined"><b id="lobby-n">0</b>명 참가 중</div>
+    <div class="players" id="lobby-players" style="justify-content:center"></div>
+    <div class="controls"><button class="btn orange" id="start" style="font-size:20px;padding:16px 32px">게임 시작</button></div>
+  </div>
+</section>
+
+<section id="game" class="hidden">
+  <div class="stage">
+    <div>
+      <div class="arena" id="arena"><div class="target" id="a-target">준비</div><div class="sub" id="a-sub"></div><div class="timer" id="a-timer"></div><div class="rx" id="rx"></div></div>
+      <div class="controls">
+        <button class="btn orange" id="next" style="font-size:20px;padding:14px 32px">▶ 라운드 시작</button>
+        <button class="btn" id="end">라운드 마감</button>
+        <button class="btn ghost" id="finish">종료</button>
+      </div>
+    </div>
+    <div class="side card">
+      <div class="muted" style="text-align:center">방 코드</div>
+      <div class="code" id="side-code"></div>
+      <div id="side-qr" style="display:flex;justify-content:center;margin:8px 0"></div>
+      <div style="display:flex;justify-content:space-between;margin-top:10px"><b>🏆 총점</b><span class="muted" id="side-round"></span></div>
+      <div class="board" id="board"></div>
+    </div>
+  </div>
+</section>
+
+<section id="result" class="hidden">
+  <div class="card winner">
+    <div class="muted">🏆 최종 순위</div>
+    <div class="podium" id="podium"></div>
+    <div class="board" id="final-board" style="max-width:520px;margin:0 auto"></div>
+    <div class="awards" id="awards"></div>
+    <div class="controls"><button class="btn ghost" id="again">같은 참가자로 다시</button><button class="btn" id="newroom">새 방 만들기</button></div>
+  </div>
+</section>
+<div class="confetti" id="confetti"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../../shared/supabase-config.js"></script>
+<script src="../../shared/supabase-client.js"></script>
+<script src="../../shared/pin.js?v=2"></script>
+<script>
+if (!window.sb) throw new Error('Supabase 설정 없음');
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const err = e => (e.message || '').replace(/^.*?: /, '');
+const sec = ms => (ms / 1000).toFixed(2);
+let PIN = null, code = '', room = null, players = [], channel = null, pollTimer = null, submitted = 0, limitTimer = null, tick = null, busy = false, roundStart = 0;
+STEPI_PIN.require().then(p => { PIN = p; });
+$('mode').onchange = () => { $('targetWrap').style.display = $('mode').value === 'random' ? 'none' : ''; };
+
+$('create').onclick = async () => {
+  if (!PIN) return; $('create').disabled = true; $('setup-msg').textContent = '방을 만드는 중…';
+  const { data, error } = await sb.rpc('sw_create_room', { p_pin: PIN, p_rounds: +$('rounds').value || 5, p_mode: $('mode').value, p_target: Math.round((+$('target').value || 5) * 1000) });
+  $('create').disabled = false;
+  if (error) return $('setup-msg').textContent = err(error);
+  code = data; enterLobby();
+};
+function playUrl() { return location.href.replace(/host\.html.*$/, 'play.html?room=' + code); }
+function qr(el, size) { el.innerHTML = ''; new QRCode(el, { text: playUrl(), width: size, height: size, colorDark: '#373282' }); }
+function enterLobby() { show('lobby'); $('lobby-code').textContent = code; $('side-code').textContent = code; $('lobby-url').textContent = playUrl(); qr($('lobby-qr'), 220); qr($('side-qr'), 140); subscribe(); }
+function subscribe() {
+  if (channel) sb.removeChannel(channel);
+  channel = sb.channel('sw-' + code)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'sw_players', filter: 'room_code=eq.' + code }, loadPlayers)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sw_results', filter: 'room_code=eq.' + code }, p => { if (room && p.new.round_no === room.round_no && room.phase === 'round') { submitted++; if (submitted >= players.length && players.length) setTimeout(endRound, 800); } })
+    .subscribe();
+  loadPlayers(); clearInterval(pollTimer); pollTimer = setInterval(async () => { loadPlayers(); if (room && room.phase === 'round') { const { count } = await sb.from('sw_results').select('*', { count: 'exact', head: true }).eq('room_code', code).eq('round_no', room.round_no); if (count != null) submitted = count; } }, 2500);
+}
+async function loadPlayers() {
+  const [{ data: ps }, { data: r }] = await Promise.all([sb.from('sw_players').select('*').eq('room_code', code).order('score', { ascending: false }).order('joined_at'), sb.from('sw_rooms').select('*').eq('code', code).maybeSingle()]);
+  players = ps || []; if (r && !(room && room.phase === 'ending')) room = { ...r, phase: room && room.phase === 'round' && r.phase === 'round' ? 'round' : r.phase }; renderBoard();
+}
+async function rpc(fn, args) {
+  const { data, error } = await sb.rpc(fn, { p_pin: PIN, p_code: code, ...args });
+  if (error) { alert(err(error)); if (/PIN/.test(error.message)) { STEPI_PIN.clear(); PIN = await STEPI_PIN.require(); } throw error; }
+  return data;
+}
+
+$('start').onclick = () => { if (!players.length && !confirm('참가자가 아직 없어요. 그래도 시작할까요?')) return; show('game'); startRound(); };
+$('next').onclick = startRound;
+async function startRound() {
+  if (busy) return; busy = true; $('next').disabled = true;
+  const info = await rpc('sw_start_round', {}).catch(() => null); if (!info) { busy = false; $('next').disabled = false; return; }
+  room = { ...room, phase: 'round', round_no: info.round_no, target_ms: info.target_ms }; submitted = 0; $('rx').innerHTML = '';
+  $('arena').className = 'arena live'; $('a-target').innerHTML = `${sec(info.target_ms)}<small>초</small>`; $('a-sub').textContent = '폰에서 시작 → 감으로 딱 이 시간에 정지!';
+  $('side-round').textContent = `라운드 ${info.round_no} / ${room.total_rounds}`; $('end').disabled = false;
+  roundStart = Date.now(); const limit = (+$('limit').value || 25) * 1000;
+  clearInterval(tick); tick = setInterval(() => { const left = Math.max(0, limit - (Date.now() - roundStart)); $('a-timer').textContent = `제출 ${submitted} / ${players.length}명 · 마감까지 ${(left / 1000).toFixed(0)}초`; }, 200);
+  clearTimeout(limitTimer); limitTimer = setTimeout(endRound, limit);
+}
+$('end').onclick = endRound;
+async function endRound() {
+  if (!room || room.phase !== 'round') return;
+  clearTimeout(limitTimer); clearInterval(tick); $('end').disabled = true; room.phase = 'ending';
+  const res = await rpc('sw_end_round', {}).catch(() => null); if (!res) { room.phase = 'round'; return; }
+  await loadPlayers(); room.phase = 'result';
+  const medals = ['🥇', '🥈', '🥉'];
+  $('rx').innerHTML = res.rows.map((r, i) => r.elapsed_ms == null
+    ? `<div class="row miss"><span class="medal">💤</span>${esc(r.name)}<span class="ms">미제출</span><span class="pts">0</span></div>`
+    : `<div class="row"><span class="medal">${medals[i] || (i + 1) + '.'}</span>${esc(r.name)}<span class="ms">${sec(r.elapsed_ms)}초</span><span class="err">${r.elapsed_ms >= res.target_ms ? '+' : '−'}${sec(r.error_ms)}</span><span class="pts">+${r.points}</span></div>`).join('');
+  $('arena').className = 'arena result'; $('a-timer').textContent = '';
+  const best = res.rows.find(r => r.elapsed_ms != null);
+  $('a-sub').textContent = best ? `목표 ${sec(res.target_ms)}초 · 1등 ${best.name} (오차 ${sec(best.error_ms)}초)` : '제출한 사람이 없어요';
+  busy = false;
+  if (room.round_no >= room.total_rounds) { setTimeout(finish, 4000); return; }
+  $('next').disabled = false; $('next').textContent = `▶ 라운드 ${room.round_no + 1} 시작`;
+}
+$('finish').onclick = () => { if (confirm('게임을 끝낼까요?')) finish(); };
+async function finish() {
+  clearTimeout(limitTimer); clearInterval(tick);
+  await rpc('sw_set_phase', { p_phase: 'done' }).catch(() => {}); await loadPlayers(); show('result');
+  const top = players.slice(0, 3), medals = ['🥇', '🥈', '🥉'];
+  $('podium').innerHTML = top.map((p, i) => `<div class="p ${i === 0 ? 'first' : ''}"><div class="m">${medals[i]}</div><div class="n">${esc(p.name)}</div><div class="s">${p.score}점</div></div>`).join('');
+  $('final-board').innerHTML = players.slice(3).map((p, i) => `<div class="r"><span class="rank">${i + 4}</span>${esc(p.name)}<span class="sc">${p.score}점</span></div>`).join('');
+  const { data: all } = await sb.from('sw_results').select('player_id,error_ms').eq('room_code', code).not('error_ms', 'is', null).order('error_ms').limit(1);
+  const b = all && all[0]; $('awards').innerHTML = b ? `<div>🎯 최고 정밀도: ${esc((players.find(p => p.id === b.player_id) || {}).name || '?')} 오차 ${sec(b.error_ms)}초</div>` : '';
+  confetti();
+}
+$('again').onclick = async () => { await rpc('sw_set_phase', { p_phase: 'lobby' }); $('next').textContent = '▶ 라운드 시작'; enterLobby(); };
+$('newroom').onclick = () => location.reload();
+function show(id) { ['setup', 'lobby', 'game', 'result'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
+function renderBoard() {
+  $('lobby-players').innerHTML = players.map(p => `<span>${esc(p.name)}</span>`).join(''); $('lobby-n').textContent = players.length;
+  $('board').innerHTML = players.slice(0, 12).map((p, i) => `<div class="r ${i < 3 ? 'top' : ''}"><span class="rank">${i + 1}</span>${esc(p.name)}<span class="sc">${p.score}</span></div>`).join('');
+}
+function confetti() {
+  const c = $('confetti'); c.innerHTML = ''; const colors = ['#373282', '#ED911A', '#1f8a5b', '#d6453d', '#f5c518', '#6c5ce7'];
+  for (let i = 0; i < 90; i++) { const s = document.createElement('i'); s.style.cssText = `left:${Math.random() * 100}vw;background:${colors[i % 6]};animation-delay:${Math.random() * 1.5}s;transform:rotate(${Math.random() * 360}deg)`; c.appendChild(s); }
+  setTimeout(() => c.innerHTML = '', 5000);
+}
+</script>
+<script src="../../shared/home.js"></script>
+</body>
+</html>

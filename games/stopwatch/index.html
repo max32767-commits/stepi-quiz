@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>인간 스톱워치</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="../ox/ox.css">
+</head>
+<body>
+<div class="play" style="justify-content:center">
+  <div class="card" style="text-align:center;padding:36px 24px">
+    <div style="font-size:56px">⏱️</div>
+    <h1 style="color:var(--navy)">인간 스톱워치</h1>
+    <p class="muted">큰 화면에 목표 시간(예: 5.00초)이 뜨면 폰에서 <b>시작</b>을 누르고, 감으로 딱 그 시간에 <b>정지</b>!<br>폰에는 시간이 안 보여요. 오차가 작은 순으로 10·9·8…점, 여러 라운드 총점 1위가 우승.</p>
+    <a class="btn" href="host.html" style="margin-top:10px;text-decoration:none">🖥️ 진행자 화면 (PIN 필요)</a>
+    <a class="btn orange" href="play.html" style="margin-top:10px;text-decoration:none">📱 참가하기</a>
+  </div>
+</div>
+<script>const q = new URLSearchParams(location.search); if (q.get('room')) location.replace('play.html?room=' + q.get('room'));</script>
+<script src="../../shared/home.js"></script>
+</body>
+</html>
