@@ -34,7 +34,12 @@
         <div><b id="s-players">–</b><span class="muted">참가자</span></div>
         <div><b id="s-guesses">–</b><span class="muted">추측 수</span></div>
       </div>
-      <div class="hint">정답은 진행자에게도 보이지 않아요. 누군가 맞히거나 새 라운드를 열면 참가자 화면에 공개됩니다.</div>
+      <div style="margin-top:12px;padding:12px 14px;border-radius:12px;background:#fff1e0;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <b style="color:var(--navy)">이번 라운드 정답</b>
+        <span id="answer" style="font-size:24px;font-weight:900;color:var(--orange);letter-spacing:.02em;font-family:monospace">••••</span>
+        <button class="btn sm ghost" id="toggle-answer" type="button">보기</button>
+        <span class="hint" style="flex-basis:100%">진행자에게만 보입니다(PIN). 이 화면을 프로젝터에 띄우지 마세요 — 참가자·큰 화면에는 맞히거나 라운드를 넘긴 뒤에만 공개됩니다.</span>
+      </div>
       <table style="margin-top:12px"><thead><tr><th>가장 가까운 추측</th><th>참가자</th><th class="n">유사도</th><th class="n">순위</th></tr></thead><tbody id="best"></tbody></table>
     </div>
     <div class="card">
@@ -74,15 +79,28 @@ const $ = id => document.getElementById(id);
 const msg = (t, cls) => { $('msg').textContent = t; $('msg').className = cls || ''; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let PIN = null;
-STEPI_PIN.require().then(p => { PIN = p; warm(); setInterval(warm, 4 * 60 * 1000); });
+STEPI_PIN.require().then(p => { PIN = p; warm(); setInterval(warm, 4 * 60 * 1000); loadAnswer(); });
 // 단어 벡터 인덱스(200MB)가 메모리에서 밀려나면 첫 검색이 10초 넘게 걸리므로, 진행자 화면이 열려 있는 동안 미리 데워 둔다
 function warm() { sb.rpc('warm_up').then(({ error }) => { if (error) console.warn('warm_up', error.message); }); }
 
 const playUrl = location.href.replace(/host\.html.*$/, 'play.html');
 new QRCode($('qr'), { text: playUrl, width: 220, height: 220, colorDark: '#373282' }); $('url').textContent = playUrl;
 
+let answerShown = false, curAnswer = null, curAnswerRound = null;
+async function loadAnswer() {
+  if (!PIN) return;
+  const { data, error } = await sb.rpc('host_answer', { p_pin: PIN });
+  if (error) { if (/PIN/.test(error.message)) { STEPI_PIN.clear(); PIN = await STEPI_PIN.require(); } return; }
+  curAnswer = data ? data.answer : null; curAnswerRound = data ? data.round : null; renderAnswer();
+}
+function renderAnswer() {
+  $('answer').textContent = curAnswer == null ? '(진행 중인 라운드 없음)' : answerShown ? curAnswer : '•'.repeat(Math.max(3, curAnswer.length));
+  $('toggle-answer').textContent = answerShown ? '가리기' : '보기';
+}
+$('toggle-answer').onclick = () => { answerShown = !answerShown; renderAnswer(); };
 async function refresh() {
   const { data } = await sb.rpc('round_status');
+  if (data && data.id !== curAnswerRound) loadAnswer();
   if (!data) { $('s-round').textContent = '없음'; $('s-players').textContent = $('s-guesses').textContent = '0'; $('best').innerHTML = ''; return; }
   $('s-round').textContent = data.id + '번째'; $('s-players').textContent = data.players; $('s-guesses').textContent = data.guesses;
   $('best').innerHTML = (data.best || []).map(b => `<tr><td>${esc(b.word)}</td><td>${esc(b.player)}</td><td class="n">${(b.similarity * 100).toFixed(2)}</td><td class="n">${b.rank == null ? '1000위 밖' : b.rank === 0 ? '정답' : b.rank + '위'}</td></tr>`).join('');
@@ -107,7 +125,8 @@ async function start(word) {
   const { data, error } = await sb.rpc('start_round', { p_word: word || null, p_pin: PIN, p_player: '진행자' });
   $('start').disabled = $('random').disabled = false;
   if (error) { msg(error.message.replace(/^.*?: /, ''), 'bad'); if (/PIN/.test(error.message)) { STEPI_PIN.clear(); PIN = await STEPI_PIN.require(); } return; }
-  msg(`${data}번째 라운드를 열었어요. 참가자 화면에 자동으로 안내됩니다.`, 'ok');
+  await loadAnswer();
+  msg(`${data}번째 라운드를 열었어요 · 정답: ${curAnswer || '(확인 중)'} — 참가자 화면에 자동으로 안내됩니다.`, 'ok');
   $('word').value = ''; $('check').textContent = ''; refresh();
 }
 $('start').onclick = () => { const w = $('word').value.trim(); if (!w) return msg('단어를 입력하세요', 'bad'); start(w); };
