@@ -22,6 +22,8 @@
   .drop{border:2px dashed var(--line);border-radius:14px;padding:26px;text-align:center;color:var(--muted);cursor:pointer;position:relative}
   .drop input{position:absolute;inset:0;opacity:0;cursor:pointer}
   .drop.over{border-color:var(--navy);background:#eef0fa}
+  .btn.ghost.preset-select{appearance:none;-webkit-appearance:none;padding-right:30px;line-height:1.5;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23373282' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center;cursor:pointer}
+  .preset-select option{font-weight:600;color:var(--ink)}
   textarea{width:100%;min-height:120px;font:inherit;padding:12px;border:1px solid var(--line);border-radius:12px;resize:vertical;margin-top:10px}
   .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:14px}
   .item{position:relative;background:#f5f6fb;border-radius:12px;overflow:hidden;aspect-ratio:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:8px;font-weight:700}
@@ -93,7 +95,7 @@
     <textarea id="names" placeholder="글로만 된 후보는 한 줄에 하나씩. 제목|설명 꼴로 쓰면 설명이 작게 붙어요&#10;예) 점심은 짜장면&#10;해결사형|문제를 지적하는 데 그치지 않고 해결책까지 제시함"></textarea>
     <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
       <button class="btn sm ghost" id="add-text">후보 추가</button>
-      <select id="preset" style="padding:8px 12px;border:1.5px solid var(--navy);border-radius:10px;font:inherit;font-weight:700;color:var(--navy);background:#fff"><option value="">예시 추가 ▾</option></select>
+      <select id="preset" class="btn sm ghost preset-select"><option value="">예시 추가</option></select>
       <button class="btn sm ghost" id="clear">모두 지우기</button>
       <span class="muted" style="align-self:center" id="count"></span>
     </div>
