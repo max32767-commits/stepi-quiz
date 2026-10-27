@@ -83,12 +83,13 @@ function subscribe() {
 function show(id) { ['join', 'wait', 'vote'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
 function card(k, name, img) {
   const el = $('cand-' + k); el.classList.toggle('noimg', !img);
-  el.innerHTML = (img ? `<img src="${img}" alt="">` : '') + `<div class="label">${esc(name)}</div><div class="pct hidden" id="pct-${k}"></div>`;
+  const i = String(name || '').indexOf('|'), lab = i < 0 ? esc(name) : `${esc(name.slice(0, i).trim())}<small style="display:block;font-size:.6em;font-weight:600;color:#4b5563;margin-top:6px;line-height:1.35">${esc(name.slice(i + 1).trim())}</small>`;
+  el.innerHTML = (img ? `<img src="${img}" alt="">` : '') + `<div class="label">${lab}</div><div class="pct hidden" id="pct-${k}"></div>`;
 }
 async function render() {
   if (!room) return;
   if (room.phase === 'wait') { show('wait'); $('wait-title').textContent = room.title || '이상형 월드컵'; $('wait-sub').textContent = '진행자가 경기를 올리면 여기서 투표할 수 있어요.'; return; }
-  if (room.phase === 'done') { show('wait'); $('wait-title').textContent = '🏆 우승: ' + (room.winner || ''); $('wait-sub').textContent = '월드컵이 끝났어요. 큰 화면을 보세요!'; return; }
+  if (room.phase === 'done') { show('wait'); $('wait-title').textContent = '🏆 우승: ' + String(room.winner || '').split('|')[0].trim(); $('wait-sub').textContent = '월드컵이 끝났어요. 큰 화면을 보세요!'; return; }
   show('vote');
   if (room.match_no !== lastMatch) { lastMatch = room.match_no; mine = null; card('a', room.a_name, room.a_img); card('b', room.b_name, room.b_img); ['cand-a', 'cand-b'].forEach(i => $(i).classList.remove('picked', 'win', 'lose')); }
   $('round').textContent = room.round_label || '';
@@ -100,7 +101,7 @@ async function render() {
     const tot = t ? t.a + t.b : 0;
     ['a', 'b'].forEach(k => { const p = $('pct-' + k); if (p && t) { p.textContent = tot ? Math.round(t[k] / tot * 100) + '%' : '0%'; p.classList.remove('hidden'); } });
     if (t && t.a !== t.b) { const w = t.a > t.b ? 'a' : 'b'; $('cand-' + w).classList.add('win'); $('cand-' + (w === 'a' ? 'b' : 'a')).classList.add('lose'); }
-    $('msg').textContent = room.winner ? `${room.winner} 승리!` : '투표 마감 — 결과는 큰 화면에서';
+    $('msg').textContent = room.winner ? `${String(room.winner).split('|')[0].trim()} 승리!` : '투표 마감 — 결과는 큰 화면에서';
     $('msg').className = 'msg';
   }
 }

@@ -39,6 +39,8 @@
   .side.noimg{align-items:center;background:var(--a)} .side.noimg.b{background:var(--b)}
   .side .label{position:relative;z-index:1;margin:18px;padding:12px 22px;border-radius:16px;background:rgba(255,255,255,.92);font-size:clamp(22px,3vw,40px);font-weight:900;color:var(--navy);text-align:center;max-width:92%}
   .side.noimg .label{background:none;font-size:clamp(28px,4vw,56px);padding:0 20px}
+  .label small{display:block;font-size:.42em;font-weight:600;color:#4b5563;margin-top:10px;line-height:1.4;max-width:34ch;white-space:normal}
+  .champ .img.noimg small{display:block;font-size:18px;font-weight:600;color:#4b5563;margin-top:8px}
   .side.win{outline:6px solid var(--orange);transform:scale(1.03)}
   .side.lose{opacity:.25;filter:grayscale(1)}
   .vs{display:flex;align-items:center;justify-content:center;font-size:44px;font-weight:900;color:var(--orange);font-family:Impact,Pretendard,sans-serif}
@@ -88,10 +90,11 @@
       <input type="file" id="file" accept="image/*" multiple>
       📷 사진을 끌어다 놓거나 눌러서 선택 (여러 장 가능) — 파일 이름이 이름표가 돼요
     </div>
-    <textarea id="names" placeholder="글로만 된 후보는 한 줄에 하나씩&#10;예) 점심은 짜장면&#10;점심은 짬뽕&#10;회식은 삼겹살"></textarea>
+    <textarea id="names" placeholder="글로만 된 후보는 한 줄에 하나씩. 제목|설명 꼴로 쓰면 설명이 작게 붙어요&#10;예) 점심은 짜장면&#10;해결사형|문제를 지적하는 데 그치지 않고 해결책까지 제시함"></textarea>
     <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
       <button class="btn sm ghost" id="add-text">글 후보 추가</button>
       <button class="btn sm ghost" id="sample">예시 넣기</button>
+      <button class="btn sm ghost" id="preset-colleague">좋은 동료 32강 넣기</button>
       <button class="btn sm ghost" id="clear">모두 지우기</button>
       <span class="muted" style="align-self:center" id="count"></span>
     </div>
@@ -188,6 +191,17 @@ $('add-text').onclick = () => {
   $('names').value.split('\n').map(s => s.trim()).filter(Boolean).forEach(n => items.push({ id: Date.now() + Math.random(), name: n, src: null }));
   $('names').value = ''; renderItems();
 };
+const COLLEAGUE32 = [
+  '척하면 척형|설명을 길게 하지 않아도 핵심을 빠르게 이해함', '책임감 만렙형|맡은 일은 끝까지 책임지고 마무리함', '해결사형|문제를 지적하는 데 그치지 않고 해결책까지 제시함', '공로 양보형|성과가 나면 동료의 기여를 먼저 인정함',
+  '정보 공유형|업무 노하우와 자료를 아낌없이 공유함', '선제적 보고형|문제가 커지기 전에 진행 상황과 위험 요소를 알려줌', '피드백 고수형|기분 나쁘지 않게 개선점을 명확하게 전달함', '긍정 에너지형|어려운 상황에서도 팀 분위기를 밝게 만듦',
+  '실행력 만렙형|말만 하지 않고 빠르게 행동으로 옮김', '정리의 신형|복잡한 내용을 누구나 이해하기 쉽게 정리함', '마감 엄수형|약속한 일정을 지키고 지연 시 미리 공유함', '눈치 백단형|동료가 도움이 필요한 순간을 빠르게 알아챔',
+  '업무 분담 천재형|팀원의 역량과 업무량을 고려해 일을 합리적으로 나눔', '대안 제시형|문제가 생기면 선택할 수 있는 대안을 여러 개 제시함', '경청의 달인형|상대방의 말을 끊지 않고 끝까지 들음', '감정 안정형|급박한 상황에서도 침착하게 대응함',
+  '디테일 장인형|작은 오류와 놓치기 쉬운 부분까지 꼼꼼하게 확인함', '효율 추구형|불필요한 회의와 반복 업무를 줄이는 방법을 찾음', '유연한 협상형|자기 주장만 고집하지 않고 서로 납득할 방법을 찾음', '빠른 응답형|업무 연락을 확인하고 필요한 답변을 적절한 시간 안에 줌',
+  '후배 성장 지원형|자신의 경험과 노하우를 나누며 동료의 성장을 도움', '분위기 메이커형|어색한 자리에서도 자연스럽게 대화를 이끌어 감', '위기 대응형|예상치 못한 문제가 생겨도 우선순위를 정해 대응함', '디지털 해결사형|새로운 도구와 기술을 활용해 업무를 더 편하게 만듦',
+  '솔직한 소통형|불편한 문제도 뒤에서 말하지 않고 직접 건설적으로 이야기함', '공정한 평가형|친분보다 실제 기여와 근거를 바탕으로 판단함', '자율 업무형|세세한 지시 없이도 목표를 이해하고 스스로 업무를 추진함', '백업의 달인형|동료가 자리를 비우거나 어려움을 겪을 때 자연스럽게 업무를 지원함',
+  '아이디어 뱅크형|기존 방식에 얽매이지 않고 새로운 관점과 아이디어를 제시함', '함께 성장형|개인의 성과뿐 아니라 팀 전체의 성장을 함께 고민함', '약속 지킴형|작은 약속도 잊지 않고 지켜서 신뢰를 쌓음', '감사 표현형|도움을 받으면 고맙다는 말을 잊지 않고 표현함'
+];
+$('preset-colleague').onclick = () => { COLLEAGUE32.forEach(n => items.push({ id: Date.now() + Math.random(), name: n, src: null })); if (!$('title').value) $('title').value = '좋은 동료 이상형 월드컵'; renderItems(); };
 $('sample').onclick = () => { ['짜장면', '짬뽕', '삼겹살', '치킨', '피자', '떡볶이', '초밥', '김치찌개', '파스타', '햄버거', '냉면', '돈가스', '쌀국수', '마라탕', '곱창', '족발'].forEach(n => items.push({ id: Date.now() + Math.random(), name: n, src: null })); renderItems(); };
 $('clear').onclick = () => { if (confirm('후보를 모두 지울까요?')) { items = []; renderItems(); } };
 function renderItems() {
@@ -236,9 +250,11 @@ function nextMatch() {
   ['side-a', 'side-b'].forEach(id => $(id).classList.remove('win', 'lose'));
   if (MODE === 'vote') openVote(a, b, roundName(r.length));
 }
+// 후보 이름이 "제목|설명" 꼴이면 제목은 크게, 설명은 작게 보여 준다
+function labelHtml(name) { const i = String(name).indexOf('|'); return i < 0 ? esc(name) : `${esc(name.slice(0, i).trim())}<small>${esc(name.slice(i + 1).trim())}</small>`; }
 function paint(k, it) {
   const el = $('side-' + k); el.classList.toggle('noimg', !it.src);
-  el.innerHTML = (it.src ? `<img src="${it.src}" alt="">` : '') + `<div class="label">${esc(it.name)}</div>`
+  el.innerHTML = (it.src ? `<img src="${it.src}" alt="">` : '') + `<div class="label">${labelHtml(it.name)}</div>`
     + (MODE === 'vote' ? `<div class="votecnt" id="cnt-${k}">0</div><div class="votebar"><b id="bar-${k}"></b></div>` : '');
 }
 let locked = false;
@@ -311,9 +327,9 @@ function finish(champ) {
   if (MODE === 'vote') { clearInterval(pollTimer); sb.rpc('wc_set_phase', { p_pin: PIN, p_code: code, p_phase: 'done', p_winner: champ.name }); }
   $('result-title').textContent = '🏆 ' + title + ' 최종 우승';
   $('champ-img').className = 'img' + (champ.src ? '' : ' noimg');
-  $('champ-img').innerHTML = champ.src ? `<img src="${champ.src}" alt="">` : esc(champ.name);
-  $('champ-name').textContent = champ.name;
-  const runner = items.find(i => eliminatedAt[i.id] === '결승'); $('runner').textContent = runner ? runner.name : '-';
+  $('champ-img').innerHTML = champ.src ? `<img src="${champ.src}" alt="">` : labelHtml(champ.name);
+  $('champ-name').textContent = champ.name.split('|')[0].trim();
+  const runner = items.find(i => eliminatedAt[i.id] === '결승'); $('runner').textContent = runner ? runner.name.split('|')[0].trim() : '-';
   const order = ['결승', '4강', '8강', '16강', '32강', '64강'];
   const rest = items.filter(i => i.id !== champ.id && eliminatedAt[i.id]).sort((x, y) => order.indexOf(eliminatedAt[x.id]) - order.indexOf(eliminatedAt[y.id]));
   $('ranklist').innerHTML = rest.map(i => `<div class="it">${i.src ? `<img src="${i.src}" alt="">` : ''}${esc(i.name)}<div class="stage">${eliminatedAt[i.id]} 탈락</div></div>`).join('');
