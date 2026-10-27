@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>꼬맨틀 — 큰 화면</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="../ox/ox.css">
+<style>
+  /* 프로젝터용 화면: 정답·설정은 전혀 없고 QR + 참가자들의 추측만 보여 준다 */
+  body{background:var(--navy);color:#fff}
+  .wrap{max-width:1500px;margin:0 auto;padding:22px 24px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:22px;align-items:start}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}}
+  .head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+  .head h1{font-size:clamp(28px,3.4vw,46px);font-weight:900}
+  .head .stat{display:flex;gap:22px}.head .stat b{display:block;font-size:clamp(26px,3vw,40px);line-height:1}.head .stat span{font-size:13px;opacity:.75;font-weight:700}
+  .panel{background:rgba(255,255,255,.08);border-radius:22px;padding:18px 20px}
+  table{width:100%;border-collapse:collapse;font-size:clamp(16px,1.7vw,24px)}
+  th{font-size:13px;opacity:.7;text-align:left;padding:4px 10px;font-weight:700}
+  td{padding:9px 10px;border-top:1px solid rgba(255,255,255,.1);font-weight:700;white-space:nowrap}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  td.w{font-size:1.1em}
+  td.p{opacity:.8;font-weight:600;font-size:.85em;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+  td.bar{width:26%}td.bar i{display:block;height:12px;border-radius:6px;background:rgba(255,255,255,.15);overflow:hidden}td.bar b{display:block;height:100%;background:var(--orange)}
+  tr.latest td{background:rgba(237,145,26,.22)}
+  tr.hit td{background:#1f8a5b}
+  tr.hit td.w::after{content:' 🎯 정답!'}
+  .qr{background:#fff;color:var(--ink);border-radius:22px;padding:18px;text-align:center}
+  .qr h2{font-size:18px;color:var(--navy);margin-bottom:6px}
+  .qr .url{font-size:12px;color:var(--muted);word-break:break-all;margin-top:8px}
+  .qr .code{font-size:14px;color:var(--muted);margin-top:4px}
+  .ticker{margin-top:14px;background:rgba(255,255,255,.08);border-radius:16px;padding:12px 16px;min-height:62px}
+  .ticker .t{font-size:13px;opacity:.7;font-weight:700}.ticker .v{font-size:clamp(18px,2vw,26px);font-weight:900;margin-top:2px}
+  .banner{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(31,138,91,.96);z-index:40;text-align:center;padding:30px}
+  .banner.on{display:flex}
+  .banner .b1{font-size:clamp(28px,4vw,60px);font-weight:900}.banner .b2{font-size:clamp(40px,9vw,140px);font-weight:900;line-height:1.1;margin:10px 0}.banner .b3{font-size:clamp(16px,2vw,26px);opacity:.9;font-weight:700}
+  .muted{opacity:.7}
+  .more{text-align:center;padding:10px;font-size:14px;opacity:.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section>
+    <div class="head">
+      <h1>🧠 꼬맨틀 <span class="muted" style="font-size:.55em;font-weight:700" id="round">라운드 준비 중</span></h1>
+      <div class="stat"><div><b id="s-players">0</b><span>참가자</span></div><div><b id="s-guesses">0</b><span>추측</span></div><div><b id="s-best">–</b><span>최고 유사도</span></div></div>
+    </div>
+    <div class="panel">
+      <table><thead><tr><th>#</th><th>단어</th><th>누가</th><th style="text-align:right">유사도</th><th style="text-align:right">순위</th><th></th></tr></thead><tbody id="tbody"></tbody></table>
+      <div class="more" id="more"></div>
+    </div>
+  </section>
+  <aside>
+    <div class="qr">
+      <h2>📱 QR로 참가하기</h2>
+      <div id="qr" style="display:flex;justify-content:center"></div>
+      <div class="url" id="url"></div>
+      <div class="code">이름만 넣으면 바로 시작 · 모두 같은 정답</div>
+    </div>
+    <div class="ticker"><div class="t">방금 올라온 추측</div><div class="v" id="ticker">—</div></div>
+    <div class="ticker"><div class="t">힌트</div><div class="v" id="hint" style="font-size:15px;font-weight:600;line-height:1.5">정답과 뜻이 가까운 단어일수록 유사도가 높아요. 1,000위 안에 들면 순위가 보입니다.</div></div>
+  </aside>
+</div>
+<div class="banner" id="banner"><div><div class="b1" id="b1">정답!</div><div class="b2" id="b2"></div><div class="b3" id="b3"></div></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../../shared/supabase-config.js"></script>
+<script src="../../shared/supabase-client.js"></script>
+<script>
+if (!window.sb) throw new Error('Supabase 설정 없음');
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmt = s => (s * 100).toFixed(2);
+const rankTxt = r => r == null ? '1000위 밖' : r === 0 ? '정답' : r + '위';
+const barW = r => r == null ? 0 : r === 0 ? 100 : Math.round((1000 - r) / 10);
+const playUrl = location.href.replace(/screen\.html.*$/, 'play.html');
+try { new QRCode($('qr'), { text: playUrl, width: 250, height: 250, colorDark: '#373282' }); } catch (e) { $('qr').textContent = 'QR 라이브러리를 불러오지 못했어요 — 아래 주소로 접속'; }
+$('url').textContent = playUrl;
+
+let roundId = null, guesses = [], channel = null, latestId = null, shownDone = null, renderTimer = null;
+async function loadRound() {
+  const { data: r } = await sb.from('rounds').select('id,finished_at,winner,gave_up,created_at').order('id', { ascending: false }).limit(1).maybeSingle();
+  if (!r) return;
+  if (r.id !== roundId) {
+    roundId = r.id; guesses = []; latestId = null; $('banner').classList.remove('on');
+    const { data: rows } = await sb.from('guesses').select('*').eq('round_id', roundId).order('created_at');
+    const seen = new Set(); guesses = (rows || []).filter(g => !seen.has(g.word) && seen.add(g.word));
+    $('round').textContent = `${roundId}번째 라운드`;
+    subscribe(); render();
+  }
+  if (r.finished_at && shownDone !== r.id) { shownDone = r.id; showDone(r); }
+  if (!r.finished_at) $('banner').classList.remove('on');
+}
+function subscribe() {
+  if (channel) sb.removeChannel(channel);
+  channel = sb.channel('screen-' + roundId)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'guesses', filter: 'round_id=eq.' + roundId }, p => { if (!guesses.some(g => g.word === p.new.word)) { guesses.push(p.new); latestId = p.new.id; $('ticker').textContent = `${p.new.player} — ${p.new.word} (${fmt(p.new.similarity)})`; render(); } if (p.new.rank === 0) loadRound(); })
+    .subscribe();
+}
+function render() { if (renderTimer) return; renderTimer = setTimeout(() => { renderTimer = null; renderNow(); }, 150); }
+function renderNow() {
+  const players = new Set(guesses.map(g => g.player)).size;
+  $('s-players').textContent = players; $('s-guesses').textContent = guesses.length;
+  const sorted = [...guesses].sort((a, b) => b.similarity - a.similarity);
+  $('s-best').textContent = sorted.length ? fmt(sorted[0].similarity) : '–';
+  const MAX = 18, latest = guesses.find(g => g.id === latestId);
+  let rows = sorted.filter(g => g.id !== latestId).slice(0, MAX); if (latest) rows.unshift(latest);
+  const no = new Map(guesses.map((g, i) => [g.id, i + 1]));
+  $('tbody').innerHTML = rows.map(g => `<tr class="${g.id === latestId ? 'latest' : ''} ${g.rank === 0 ? 'hit' : ''}"><td class="n">${no.get(g.id)}</td><td class="w">${esc(g.word)}</td><td class="p">${esc(g.player)}</td><td class="n">${fmt(g.similarity)}</td><td class="n">${rankTxt(g.rank)}</td><td class="bar"><i><b style="width:${barW(g.rank)}%"></b></i></td></tr>`).join('');
+  $('more').textContent = guesses.length > MAX ? `유사도 상위 ${MAX}개 표시 · 전체 ${guesses.length}개` : '';
+}
+async function showDone(r) {
+  const { data: ans } = await sb.rpc('reveal_answer', { p_round: r.id });
+  $('b1').textContent = r.gave_up ? '라운드 종료' : `🎉 ${r.winner} 님 정답!`;
+  $('b2').textContent = ans || '';
+  $('b3').textContent = r.gave_up ? '진행자가 다음 라운드로 넘겼어요 · 정답은 위 단어' : `모두 ${guesses.length}번째 추측 만에 맞혔어요 · 잠시 후 다음 라운드`;
+  $('banner').classList.add('on');
+}
+loadRound(); setInterval(loadRound, 3000);
+</script>
+</body>
+</html>

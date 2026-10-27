@@ -52,11 +52,14 @@
     </div>
   </div>
   <div class="card qrbox">
-    <h2>참가자 입장</h2>
-    <div class="muted">휴대폰으로 QR을 찍으면 바로 참가 화면이 열려요</div>
-    <div id="qr" style="display:flex;justify-content:center;margin:14px 0"></div>
-    <div class="url" id="url"></div>
-    <div class="hint">코드 입력은 없고, 접속한 사람 모두 같은 라운드에 참여합니다.</div>
+    <h2>🖥️ 큰 화면 (프로젝터)</h2>
+    <div class="muted">참가자용 QR과 모두의 추측이 실시간으로 올라오는 화면이에요. <b>이 진행자 화면은 정답을 입력하는 곳이라 프로젝터에 띄우지 마세요.</b></div>
+    <a class="btn orange" id="open-screen" href="screen.html" target="kkomentle-screen" style="margin:14px 0 8px;text-decoration:none;width:100%">큰 화면 새 창으로 열기</a>
+    <div class="hint">새 창을 프로젝터 쪽으로 옮기고 전체화면(F11)으로 두세요. 큰 화면에는 정답이 절대 표시되지 않습니다(맞히거나 라운드를 넘긴 뒤에만 공개).</div>
+    <details style="margin-top:12px;text-align:left"><summary class="hint" style="cursor:pointer">QR 직접 보기 (프로젝터 없이 진행할 때)</summary>
+      <div id="qr" style="display:flex;justify-content:center;margin:14px 0"></div>
+      <div class="url" id="url"></div>
+    </details>
   </div>
 </div>
 
