@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>소통 채팅방 — 큰 화면</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="../ox/ox.css">
+<style>
+  body{background:var(--navy);color:#fff;overflow:hidden}
+  .wrap{height:100dvh;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;padding:20px 24px;box-sizing:border-box}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr;overflow:auto}}
+  .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .head h1{font-size:clamp(24px,3vw,40px);font-weight:900}
+  .feed{display:flex;flex-direction:column;justify-content:flex-end;gap:10px;height:calc(100% - 64px);overflow:hidden;padding-bottom:56px;box-sizing:border-box}
+  .m{align-self:flex-start;max-width:92%;background:rgba(255,255,255,.1);border-radius:18px 18px 18px 6px;padding:12px 18px;font-size:clamp(18px,2.2vw,30px);font-weight:600;line-height:1.35;word-break:break-word;animation:pop .25s ease-out;position:relative}
+  .m:nth-child(even){align-self:flex-end;border-radius:18px 18px 6px 18px;background:rgba(237,145,26,.22)}
+  .m .n{font-size:.6em;font-weight:800;color:#ffd166;display:block;margin-bottom:2px}
+  .m.big{font-size:clamp(44px,6vw,80px);background:none;padding:0 10px;align-self:center;text-align:center}
+  .m.big .n{font-size:16px;margin-top:-6px}
+  .m .x{position:absolute;top:-8px;right:-8px;width:26px;height:26px;border-radius:50%;background:#d6453d;color:#fff;border:0;font-size:14px;display:none;cursor:pointer}
+  body.mod .m .x{display:block}
+  @keyframes pop{from{transform:translateY(14px) scale(.96);opacity:0}to{transform:none;opacity:1}}
+  .qr{background:#fff;color:var(--ink);border-radius:22px;padding:18px;text-align:center}
+  .qr h2{font-size:18px;color:var(--navy);margin-bottom:6px}.qr .url{font-size:12px;color:var(--muted);word-break:break-all;margin-top:8px}
+  .stat{margin-top:14px;background:rgba(255,255,255,.08);border-radius:16px;padding:12px 16px}
+  .stat b{font-size:34px;display:block;line-height:1}.stat span{font-size:13px;opacity:.75;font-weight:700}
+  .mod{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+  .mod .btn{width:100%}
+  .paused{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#d6453d;color:#fff;font-weight:800;padding:8px 18px;border-radius:999px;display:none;z-index:5}
+  body.paused .paused{display:block}
+</style>
+</head>
+<body>
+<div class="paused">⏸ 채팅 일시정지 중</div>
+<div class="wrap">
+  <section>
+    <div class="head"><h1>💬 STEPI 소통 채팅방</h1><span class="muted" id="hint" style="opacity:.75">QR을 찍고 한마디!</span></div>
+    <div class="feed" id="feed"></div>
+  </section>
+  <aside>
+    <div class="qr">
+      <h2>📱 QR로 참여하기</h2>
+      <div id="qr" style="display:flex;justify-content:center"></div>
+      <div class="url" id="url"></div>
+    </div>
+    <div class="stat"><b id="cnt">0</b><span>메시지</span></div>
+    <div class="mod">
+      <button class="btn ghost" id="modbtn" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.4)">🔐 진행자 관리</button>
+      <div id="modpanel" class="hidden" style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn" id="pause">⏸ 채팅 일시정지</button>
+        <button class="btn" id="resume">▶ 다시 열기</button>
+        <button class="btn ghost" id="clear" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.4)">🧹 화면 비우기</button>
+        <div style="font-size:12px;opacity:.7">메시지 위 ✕ 를 누르면 그 메시지만 가려져요</div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../../shared/supabase-config.js"></script>
+<script src="../../shared/supabase-client.js"></script>
+<script src="../../shared/pin.js?v=2"></script>
+<script>
+if (!window.sb) throw new Error('Supabase 설정 없음');
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const qs = new URLSearchParams(location.search), ROOM = (qs.get('room') || 'main').replace(/[^\w-]/g, '').slice(0, 20) || 'main';
+const joinUrl = location.href.replace(/screen\.html.*$/, 'index.html' + (ROOM !== 'main' ? '?room=' + ROOM : ''));
+try { new QRCode($('qr'), { text: joinUrl, width: 230, height: 230, colorDark: '#373282' }); } catch (e) {}
+$('url').textContent = joinUrl;
+const isEmojiOnly = t => /^[\p{Extended_Pictographic}\s️]{1,6}$/u.test(t);
+let lastId = 0, count = 0, PIN = null;
+function add(m) {
+  if (m.hidden || document.getElementById('m' + m.id)) return;
+  lastId = Math.max(lastId, m.id); count++; $('cnt').textContent = count;
+  const el = document.createElement('div'); el.id = 'm' + m.id; el.className = 'm' + (isEmojiOnly(m.text) ? ' big' : '');
+  el.innerHTML = (isEmojiOnly(m.text) ? `${esc(m.text)}<span class="n" style="text-align:center">${esc(m.name)}</span>` : `<span class="n">${esc(m.name)}</span>${esc(m.text)}`) + `<button class="x" data-id="${m.id}" title="가리기">✕</button>`;
+  $('feed').appendChild(el);
+  while ($('feed').children.length > 14) $('feed').firstChild.remove();
+}
+async function init() {
+  const { data } = await sb.from('chat_messages').select('*').eq('room', ROOM).eq('hidden', false).order('id', { ascending: false }).limit(14);
+  (data || []).reverse().forEach(add);
+  const { data: r } = await sb.from('chat_rooms').select('paused').eq('room', ROOM).maybeSingle(); document.body.classList.toggle('paused', !!(r && r.paused));
+  sb.channel('chat-screen-' + ROOM)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: 'room=eq.' + ROOM }, p => add(p.new))
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: 'room=eq.' + ROOM }, p => { if (p.new.hidden) { const el = document.getElementById('m' + p.new.id); if (el) el.remove(); } })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_rooms', filter: 'room=eq.' + ROOM }, p => document.body.classList.toggle('paused', !!(p.new && p.new.paused)))
+    .subscribe();
+  setInterval(async () => { const { data: rows } = await sb.from('chat_messages').select('*').eq('room', ROOM).eq('hidden', false).gt('id', lastId).order('id').limit(30); (rows || []).forEach(add); }, 4000);
+}
+init();
+// ---- 진행자 관리 (PIN) ----
+$('modbtn').onclick = async () => { if (!PIN) PIN = await STEPI_PIN.require(); document.body.classList.add('mod'); $('modpanel').classList.remove('hidden'); $('modbtn').classList.add('hidden'); };
+async function mod(action, id) { const { error } = await sb.rpc('chat_moderate', { p_pin: PIN, p_room: ROOM, p_action: action, p_id: id || null }); if (error) { alert(error.message.replace(/^.*?: /, '')); if (/PIN/.test(error.message)) { STEPI_PIN.clear(); PIN = await STEPI_PIN.require(); } } }
+$('pause').onclick = () => mod('pause'); $('resume').onclick = () => mod('resume');
+$('clear').onclick = () => { if (confirm('지금까지의 메시지를 화면에서 모두 지울까요?')) { mod('clear').then(() => { $('feed').innerHTML = ''; }); } };
+$('feed').onclick = e => { const b = e.target.closest('.x'); if (b && PIN) { mod('hide', +b.dataset.id); b.closest('.m').remove(); } };
+</script>
+<script src="../../shared/home.js"></script>
+</body>
+</html>

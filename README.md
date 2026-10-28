@@ -21,6 +21,7 @@
 | 🤝 공통점 찾기 `games/common` | 진행자 큰 화면 + 참가자 휴대폰 | Supabase | 양자택일 질문에 답하면 같은 답끼리 모이고, 끝나면 가장 잘 맞는 짝 TOP 5 |
 | 👀 눈치 게임 `games/nunchi` | 진행자 큰 화면 + 참가자 휴대폰 | Supabase | 눈치껏 번호 외치기, 동시(0.15초)·마지막·침묵 탈락, 생존 +10점 |
 | ⏱️ 인간 스톱워치 `games/stopwatch` | 진행자 큰 화면 + 참가자 휴대폰 | Supabase | 목표 시간을 감으로 맞추기, 오차 순 점수, 랜덤 목표 옵션 |
+| 💬 소통 채팅방 `games/chat` | 큰 화면(screen.html) + 참가자 휴대폰(index.html) | Supabase | 메시지·이모지가 큰 화면 말풍선으로, 진행자 PIN으로 일시정지·가리기·비우기, `?room=` 으로 방 분리 |
 | 🧠 꼬맨틀 `games/kkomentle` | 여럿이 휴대폰 | Supabase | 단어 의미 유사도 추측 협동 게임 |
 
 새 게임 추가: `games/<id>/index.html` 폴더를 만들고 `games.js` 배열에 한 줄 추가. 각 게임 페이지 끝에 `<script src="../../shared/home.js"></script>`를 넣으면 "랜덤 게임 홈" 버튼이 붙습니다.

@@ -442,3 +442,7 @@ alter policy ox_answers_insert on ox_answers with check (false);   -- 제출은 
 -- sw_rooms(code, phase, round_no, total_rounds, mode fixed|random, target_ms, started_at) / sw_players / sw_results(elapsed_ms, error_ms, points)
 -- RPC sw_create_room(pin, rounds, mode, target) / sw_join / sw_start_round(pin, code) → {round_no, target_ms} / sw_submit(code, round, pid, elapsed_ms) / sw_end_round / sw_round_results / sw_set_phase
 -- 전체 정의는 마이그레이션 nunchi_and_stopwatch 참고
+
+-- ---------------------------------------------------------------- 소통 채팅방 (chat_*)
+-- chat_messages(id, room, device, name, text, hidden) / chat_rooms(room, paused)
+-- RPC chat_send(room, device, name, text): 1.5초·분당 20개 제한, 200자 / chat_moderate(pin, room, action hide|unhide|clear|pause|resume, id)

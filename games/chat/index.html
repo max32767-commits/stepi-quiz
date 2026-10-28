@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<title>소통 채팅방</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="../ox/ox.css">
+<style>
+  html,body{height:100%}
+  .chat{max-width:640px;margin:0 auto;height:100dvh;display:flex;flex-direction:column;padding:10px 12px env(safe-area-inset-bottom,10px)}
+  .msgs{flex:1;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:10px 2px}
+  .m{max-width:86%;background:#fff;border:1px solid var(--line);border-radius:16px 16px 16px 4px;padding:8px 12px;font-size:16px;line-height:1.4;word-break:break-word;animation:pop .2s ease-out}
+  .m.me{align-self:flex-end;background:var(--navy);color:#fff;border-color:var(--navy);border-radius:16px 16px 4px 16px}
+  .m .n{font-size:12px;font-weight:800;color:var(--orange);display:block;margin-bottom:2px}.m.me .n{color:#ffd166}
+  .m .t{font-size:11px;opacity:.55;margin-left:6px}
+  .m.big{font-size:34px;text-align:center;background:none;border:0;padding:2px}
+  @keyframes pop{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
+  .quick{display:flex;gap:6px;overflow-x:auto;padding:6px 0}.quick button{flex:0 0 auto;border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font-size:18px}
+  form.send{display:flex;gap:8px}form.send input{flex:1;padding:12px 14px;border:1.5px solid var(--line);border-radius:14px;font-size:16px}
+  form.send button{padding:0 18px;border-radius:14px;background:var(--orange);color:#fff;font-weight:800;font-size:16px}
+  .sys{text-align:center;font-size:13px;color:var(--muted)}
+  .topbar .pill small{font-weight:600;opacity:.8}
+</style>
+</head>
+<body>
+<div class="chat">
+  <div class="topbar" style="border-radius:14px;border:1px solid var(--line)">
+    <a class="brand" href="../../"><img src="../../assets/logo-word.png" alt="STEPI" style="height:26px"><img src="../../assets/logo-dots.png" alt="" style="height:20px"></a>
+    <span class="pill">💬 채팅방 <small id="who"></small></span>
+  </div>
+  <section id="join" class="card" style="margin-top:12px">
+    <h2>채팅방 입장</h2>
+    <p class="muted">이름을 넣으면 바로 참여돼요. 메시지는 큰 화면에도 같이 나옵니다.</p>
+    <input class="name" id="name" maxlength="12" placeholder="이름 (예: 홍길동)" autocomplete="off" style="margin:10px 0 14px">
+    <button class="btn orange" id="go">입장</button>
+    <p class="muted" id="join-msg" style="margin:10px 0 0"></p>
+  </section>
+  <div class="msgs hidden" id="msgs"></div>
+  <div class="quick hidden" id="quick"></div>
+  <form class="send hidden" id="send"><input id="text" maxlength="200" placeholder="메시지 (200자)" autocomplete="off" enterkeyhint="send"><button type="submit">전송</button></form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../../shared/supabase-config.js"></script>
+<script src="../../shared/supabase-client.js"></script>
+<script>
+if (!window.sb) throw new Error('Supabase 설정 없음');
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const qs = new URLSearchParams(location.search), ROOM = (qs.get('room') || 'main').replace(/[^\w-]/g, '').slice(0, 20) || 'main';
+let device = '', me = '', lastId = 0, paused = false;
+try { device = localStorage.getItem('chat:device'); if (!device) { device = 'd' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('chat:device', device); } } catch (e) { device = 'd' + Math.random().toString(36).slice(2) + Date.now().toString(36); }
+try { $('name').value = localStorage.getItem('stepi:name') || ''; } catch (e) {}
+const QUICK = ['👏', '🔥', '😂', '❤️', '👍', '🎉', 'ㅋㅋㅋ', '화이팅!', '정답!', '한 번 더!'];
+$('quick').innerHTML = QUICK.map(q => `<button type="button" data-q="${esc(q)}">${esc(q)}</button>`).join('');
+const isEmojiOnly = t => /^[\p{Extended_Pictographic}\s️]{1,6}$/u.test(t);
+
+$('go').onclick = () => { me = $('name').value.trim(); if (!me) return $('join-msg').textContent = '이름을 입력하세요.'; try { localStorage.setItem('stepi:name', me); } catch (e) {} enter(); };
+$('name').onkeydown = e => { if (e.key === 'Enter') $('go').click(); };
+async function enter() {
+  $('join').classList.add('hidden'); ['msgs', 'quick', 'send'].forEach(i => $(i).classList.remove('hidden')); $('who').textContent = '· ' + me;
+  const { data } = await sb.from('chat_messages').select('*').eq('room', ROOM).eq('hidden', false).order('id', { ascending: false }).limit(60);
+  (data || []).reverse().forEach(add); scrollEnd(true);
+  sb.channel('chat-' + ROOM + '-' + device)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: 'room=eq.' + ROOM }, p => { add(p.new); scrollEnd(); })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: 'room=eq.' + ROOM }, p => { if (p.new.hidden) { const el = document.getElementById('m' + p.new.id); if (el) el.remove(); } })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_rooms', filter: 'room=eq.' + ROOM }, p => setPaused(!!(p.new && p.new.paused)))
+    .subscribe();
+  const { data: r } = await sb.from('chat_rooms').select('paused').eq('room', ROOM).maybeSingle(); setPaused(!!(r && r.paused));
+  setInterval(async () => { const { data: rows } = await sb.from('chat_messages').select('*').eq('room', ROOM).eq('hidden', false).gt('id', lastId).order('id').limit(50); (rows || []).forEach(add); if (rows && rows.length) scrollEnd(); }, 4000);
+  $('text').focus();
+}
+function add(m) {
+  if (m.hidden || document.getElementById('m' + m.id)) return;
+  lastId = Math.max(lastId, m.id);
+  const el = document.createElement('div'); el.id = 'm' + m.id; el.className = 'm' + (m.device === device ? ' me' : '') + (isEmojiOnly(m.text) ? ' big' : '');
+  const t = new Date(m.created_at); const hh = t.getHours().toString().padStart(2, '0') + ':' + t.getMinutes().toString().padStart(2, '0');
+  el.innerHTML = isEmojiOnly(m.text) ? `${esc(m.text)}<div style="font-size:11px;color:var(--muted)">${esc(m.name)}</div>` : `<span class="n">${esc(m.name)}<span class="t">${hh}</span></span>${esc(m.text)}`;
+  $('msgs').appendChild(el);
+  while ($('msgs').children.length > 150) $('msgs').firstChild.remove();
+}
+function scrollEnd(force) { const b = $('msgs'); const near = b.scrollHeight - b.scrollTop - b.clientHeight < 160; if (force || near) b.scrollTop = b.scrollHeight; }
+function setPaused(p) { paused = p; $('text').placeholder = p ? '진행자가 채팅을 잠시 멈췄어요' : '메시지 (200자)'; $('text').disabled = p; }
+async function send(text) {
+  text = text.trim(); if (!text || paused) return;
+  const { error } = await sb.rpc('chat_send', { p_room: ROOM, p_device: device, p_name: me, p_text: text });
+  if (error) { const s = document.createElement('div'); s.className = 'sys'; s.textContent = error.message.replace(/^.*?: /, ''); $('msgs').appendChild(s); scrollEnd(true); setTimeout(() => s.remove(), 3000); return false; }
+  return true;
+}
+$('send').onsubmit = async e => { e.preventDefault(); const v = $('text').value; if (await send(v)) $('text').value = ''; $('text').focus(); };
+$('quick').onclick = e => { const b = e.target.closest('[data-q]'); if (b) send(b.dataset.q); };
+</script>
+</body>
+</html>
