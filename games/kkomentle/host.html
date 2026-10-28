@@ -64,7 +64,6 @@
     <div class="hint">새 창을 프로젝터 쪽으로 옮기고 전체화면(F11)으로 두세요. 큰 화면에는 정답이 절대 표시되지 않습니다(맞히거나 라운드를 넘긴 뒤에만 공개).</div>
     <details style="margin-top:12px;text-align:left"><summary class="hint" style="cursor:pointer">QR 직접 보기 (프로젝터 없이 진행할 때)</summary>
       <div id="qr" style="display:flex;justify-content:center;margin:14px 0"></div>
-      <div class="url" id="url"></div>
     </details>
   </div>
 </div>
@@ -86,7 +85,7 @@ setInterval(loadOffset, 30000);
 function warm() { sb.rpc('warm_up').then(({ error }) => { if (error) console.warn('warm_up', error.message); }); }
 
 const playUrl = location.href.replace(/host\.html.*$/, 'play.html');
-new QRCode($('qr'), { text: playUrl, width: 220, height: 220, colorDark: '#373282' }); $('url').textContent = playUrl;
+new QRCode($('qr'), { text: playUrl, width: 220, height: 220, colorDark: '#373282' });
 
 // 라운드 표시 번호: DB id에서 kk_meta.round_offset을 뺀 값(진행자가 '라운드 번호 초기화'를 누르면 1부터 다시)
 let ROUND_OFFSET = 0;

@@ -54,7 +54,6 @@
     <div class="qr">
       <h2>📱 QR로 참가하기</h2>
       <div id="qr" style="display:flex;justify-content:center"></div>
-      <div class="url" id="url"></div>
       <div class="code">이름만 넣으면 바로 시작 · 모두 같은 정답</div>
     </div>
     <div class="ticker"><div class="t">방금 올라온 추측</div><div class="v" id="ticker">—</div></div>
@@ -75,8 +74,7 @@ const fmt = s => (s * 100).toFixed(2);
 const rankTxt = r => r == null ? '1000위 밖' : r === 0 ? '정답' : r + '위';
 const barW = r => r == null ? 0 : r === 0 ? 100 : Math.round((1000 - r) / 10);
 const playUrl = location.href.replace(/screen\.html.*$/, 'play.html');
-try { new QRCode($('qr'), { text: playUrl, width: 250, height: 250, colorDark: '#373282' }); } catch (e) { $('qr').textContent = 'QR 라이브러리를 불러오지 못했어요 — 아래 주소로 접속'; }
-$('url').textContent = playUrl;
+try { new QRCode($('qr'), { text: playUrl, width: 250, height: 250, colorDark: '#373282' }); } catch (e) { $('qr').textContent = 'QR을 불러오지 못했어요 — 새로고침해 주세요'; }
 
 // 라운드 표시 번호: DB id에서 kk_meta.round_offset을 뺀 값(진행자가 '라운드 번호 초기화'를 누르면 1부터 다시)
 let ROUND_OFFSET = 0;

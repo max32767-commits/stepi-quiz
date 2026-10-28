@@ -61,7 +61,6 @@
     <div class="muted">휴대폰으로 QR을 찍고 이름을 넣으세요</div>
     <div class="big-code" id="lobby-code">0000</div>
     <div id="lobby-qr" style="display:flex;justify-content:center;margin:16px 0"></div>
-    <div class="url" id="lobby-url"></div>
     <div class="joined"><b id="lobby-n">0</b>명 참가 중</div>
     <div class="players" id="lobby-players" style="justify-content:center"></div>
     <div class="controls"><button class="btn orange" id="start" style="font-size:20px;padding:16px 32px">게임 시작</button></div>
@@ -121,7 +120,7 @@ $('create').onclick = async () => {
 };
 function playUrl() { return location.href.replace(/host\.html.*$/, 'play.html?room=' + code); }
 function qr(el, size) { el.innerHTML = ''; new QRCode(el, { text: playUrl(), width: size, height: size, colorDark: '#373282' }); }
-function enterLobby() { show('lobby'); $('lobby-code').textContent = code; $('side-code').textContent = code; $('lobby-url').textContent = playUrl(); qr($('lobby-qr'), 220); qr($('side-qr'), 140); subscribe(); }
+function enterLobby() { show('lobby'); $('lobby-code').textContent = code; $('side-code').textContent = code; qr($('lobby-qr'), 220); qr($('side-qr'), 140); subscribe(); }
 function subscribe() {
   if (channel) sb.removeChannel(channel);
   channel = sb.channel('nz-' + code)

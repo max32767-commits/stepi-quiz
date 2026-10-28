@@ -126,7 +126,7 @@
 
 <!-- 대결 -->
 <section id="arena-sec" class="hidden">
-  <div class="qrpanel hidden" id="qrpanel"><div id="qr"></div><div><div class="muted">휴대폰으로 QR을 찍고 투표하세요</div><div class="code" id="room-code"></div><div class="url" id="room-url"></div></div><div style="text-align:center"><div class="muted">투표</div><div class="code" id="vote-total">0</div><div class="muted" id="vote-timer"></div></div></div>
+  <div class="qrpanel hidden" id="qrpanel"><div id="qr"></div><div><div class="muted">휴대폰으로 QR을 찍고 투표하세요</div><div class="code" id="room-code"></div></div><div style="text-align:center"><div class="muted">투표</div><div class="code" id="vote-total">0</div><div class="muted" id="vote-timer"></div></div></div>
   <div class="round"><div class="r" id="round-name">16강</div><div class="m" id="round-match">1 / 8 경기</div><div class="prog"><b id="prog"></b></div></div>
   <div class="arena">
     <div class="side" id="side-a"></div>
@@ -302,7 +302,7 @@ function pick(k) {
 let voteOpen = false;
 function playUrl() { return location.href.replace(/index\.html.*$|\?.*$|#.*$/, '').replace(/\/$/, '') + '/play.html?room=' + code; }
 function setupRoom() {
-  $('room-code').textContent = code; $('room-url').textContent = playUrl();
+  $('room-code').textContent = code;
   $('qr').innerHTML = ''; new QRCode($('qr'), { text: playUrl(), width: 110, height: 110, colorDark: '#373282' });
   if (channel) sb.removeChannel(channel);
   channel = sb.channel('wc-' + code).on('postgres_changes', { event: '*', schema: 'public', table: 'wc_votes', filter: 'room_code=eq.' + code }, loadTally).subscribe();

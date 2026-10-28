@@ -45,7 +45,6 @@
     <div class="qr">
       <h2>📱 QR로 참여하기</h2>
       <div id="qr" style="display:flex;justify-content:center"></div>
-      <div class="url" id="url"></div>
     </div>
     <div class="stat"><b id="cnt">0</b><span>메시지</span></div>
     <div class="mod">
@@ -73,7 +72,6 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 const qs = new URLSearchParams(location.search), ROOM = (qs.get('room') || 'main').replace(/[^\w-]/g, '').slice(0, 20) || 'main';
 const joinUrl = location.href.replace(/screen\.html.*$/, 'index.html' + (ROOM !== 'main' ? '?room=' + ROOM : ''));
 try { new QRCode($('qr'), { text: joinUrl, width: 230, height: 230, colorDark: '#373282' }); } catch (e) {}
-$('url').textContent = joinUrl;
 const isEmojiOnly = t => /^[\p{Extended_Pictographic}\s️]{1,6}$/u.test(t);
 let lastId = 0, count = 0, PIN = null;
 function add(m) {
