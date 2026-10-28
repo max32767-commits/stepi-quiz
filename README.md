@@ -25,6 +25,14 @@
 
 새 게임 추가: `games/<id>/index.html` 폴더를 만들고 `games.js` 배열에 한 줄 추가. 각 게임 페이지 끝에 `<script src="../../shared/home.js"></script>`를 넣으면 "랜덤 게임 홈" 버튼이 붙습니다.
 
+## 배포 — Render (원하는 주소로)
+
+1. https://render.com 가입 → GitHub 연결
+2. **New → Blueprint** → `stepi-quiz` 저장소 선택 → `render.yaml` 이 읽혀 정적 사이트가 만들어진다 (이름 `stepi-games` → `https://stepi-games.onrender.com`, 이름은 대시보드에서 변경 가능)
+3. 이후 `main` 에 푸시할 때마다 자동 배포. 커스텀 도메인은 Settings → Custom Domains.
+- 무료 플랜(월 100GB 전송) 으로 충분. 서버 코드가 없으므로 Supabase 설정·PIN·게임 동작은 GitHub Pages 와 동일.
+- 꼬맨틀 진행자 화면의 "큰 화면 열기", 각 게임의 QR 은 현재 주소 기준으로 만들어지므로 Render 주소로 접속하면 QR 도 Render 주소가 된다.
+
 ## 배포 (GitHub Pages)
 
 1. 저장소 Settings → Pages → Build and deployment: **Deploy from a branch**, Branch `main` / `(root)` → Save

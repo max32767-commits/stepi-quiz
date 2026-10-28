@@ -1,0 +1,28 @@
+# Render.com 정적 사이트 설정 (Blueprint)
+# Render 대시보드 → New → Blueprint → 이 저장소 선택하면 아래 설정으로 자동 생성됩니다.
+services:
+  - type: web
+    name: stepi-games            # 주소: https://stepi-games.onrender.com (이름 바꾸면 주소도 바뀜)
+    runtime: static
+    buildCommand: ""             # 빌드 없음 — 저장소 파일을 그대로 서빙
+    staticPublishPath: .
+    pullRequestPreviewsEnabled: false
+    headers:
+      - path: /*.wasm
+        name: Content-Type
+        value: application/wasm
+      - path: /*.onnx
+        name: Content-Type
+        value: application/octet-stream
+      - path: /games/lookalike/models/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /games/lookalike/ort/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /games/lookalike/mp/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
