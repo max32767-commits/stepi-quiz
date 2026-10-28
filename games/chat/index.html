@@ -71,7 +71,7 @@ async function enter() {
   setInterval(async () => {
     const { data: rows } = await sb.from('chat_messages').select('*').eq('room', ROOM).eq('hidden', false).gt('id', lastId).order('id').limit(50); (rows || []).forEach(add); if (rows && rows.length) scrollEnd();
     const { data: rr } = await sb.from('chat_rooms').select('paused').eq('room', ROOM).maybeSingle(); setPaused(!!(rr && rr.paused));   // 실시간이 끊겨도 일시정지/재개 반영
-  }, 4000);
+  }, 2000);
   $('text').focus();
 }
 function add(m) {
@@ -87,7 +87,8 @@ function scrollEnd(force) { const b = $('msgs'); const near = b.scrollHeight - b
 function setPaused(p) { paused = p; $('text').placeholder = p ? '진행자가 채팅을 잠시 멈췄어요' : '메시지 (200자)'; $('text').disabled = p; }
 async function send(text) {
   text = text.trim(); if (!text || paused) return;
-  const { error } = await sb.rpc('chat_send', { p_room: ROOM, p_device: device, p_name: me, p_text: text });
+  const { data, error } = await sb.rpc('chat_send', { p_room: ROOM, p_device: device, p_name: me, p_text: text });
+  if (!error && data) { add(data); scrollEnd(true); }   // 서버 응답 즉시 내 화면에 표시(실시간을 기다리지 않음)
   if (error) { const s = document.createElement('div'); s.className = 'sys'; s.textContent = error.message.replace(/^.*?: /, ''); $('msgs').appendChild(s); scrollEnd(true); setTimeout(() => s.remove(), 3000); return false; }
   return true;
 }
