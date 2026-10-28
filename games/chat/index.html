@@ -68,7 +68,10 @@ async function enter() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_rooms', filter: 'room=eq.' + ROOM }, p => setPaused(!!(p.new && p.new.paused)))
     .subscribe();
   const { data: r } = await sb.from('chat_rooms').select('paused').eq('room', ROOM).maybeSingle(); setPaused(!!(r && r.paused));
-  setInterval(async () => { const { data: rows } = await sb.from('chat_messages').select('*').eq('room', ROOM).eq('hidden', false).gt('id', lastId).order('id').limit(50); (rows || []).forEach(add); if (rows && rows.length) scrollEnd(); }, 4000);
+  setInterval(async () => {
+    const { data: rows } = await sb.from('chat_messages').select('*').eq('room', ROOM).eq('hidden', false).gt('id', lastId).order('id').limit(50); (rows || []).forEach(add); if (rows && rows.length) scrollEnd();
+    const { data: rr } = await sb.from('chat_rooms').select('paused').eq('room', ROOM).maybeSingle(); setPaused(!!(rr && rr.paused));   // 실시간이 끊겨도 일시정지/재개 반영
+  }, 4000);
   $('text').focus();
 }
 function add(m) {

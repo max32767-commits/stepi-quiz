@@ -52,6 +52,7 @@
         <button class="btn" id="resume">▶ 다시 열기</button>
         <button class="btn ghost" id="clear" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.4)">🧹 화면 비우기</button>
         <div style="font-size:12px;opacity:.7">메시지 위 ✕ 를 누르면 그 메시지만 가려져요</div>
+        <div id="modmsg" style="font-size:13px;font-weight:700;color:#ffd166;min-height:1.4em"></div>
       </div>
     </div>
   </aside>
@@ -89,12 +90,20 @@ async function init() {
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: 'room=eq.' + ROOM }, p => { if (p.new.hidden) { const el = document.getElementById('m' + p.new.id); if (el) el.remove(); } })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_rooms', filter: 'room=eq.' + ROOM }, p => document.body.classList.toggle('paused', !!(p.new && p.new.paused)))
     .subscribe();
-  setInterval(async () => { const { data: rows } = await sb.from('chat_messages').select('*').eq('room', ROOM).eq('hidden', false).gt('id', lastId).order('id').limit(30); (rows || []).forEach(add); }, 4000);
+  setInterval(async () => {
+    const { data: rows } = await sb.from('chat_messages').select('*').eq('room', ROOM).eq('hidden', false).gt('id', lastId).order('id').limit(30); (rows || []).forEach(add);
+    const { data: rr } = await sb.from('chat_rooms').select('paused').eq('room', ROOM).maybeSingle(); document.body.classList.toggle('paused', !!(rr && rr.paused));
+  }, 4000);
 }
 init();
 // ---- 진행자 관리 (PIN) ----
 $('modbtn').onclick = async () => { if (!PIN) PIN = await STEPI_PIN.require(); document.body.classList.add('mod'); $('modpanel').classList.remove('hidden'); $('modbtn').classList.add('hidden'); };
-async function mod(action, id) { const { error } = await sb.rpc('chat_moderate', { p_pin: PIN, p_room: ROOM, p_action: action, p_id: id || null }); if (error) { alert(error.message.replace(/^.*?: /, '')); if (/PIN/.test(error.message)) { STEPI_PIN.clear(); PIN = await STEPI_PIN.require(); } } }
+async function mod(action, id) {
+  const { error } = await sb.rpc('chat_moderate', { p_pin: PIN, p_room: ROOM, p_action: action, p_id: id || null });
+  if (error) { alert(error.message.replace(/^.*?: /, '')); if (/PIN/.test(error.message)) { STEPI_PIN.clear(); PIN = await STEPI_PIN.require(); } return; }
+  if (action === 'pause') document.body.classList.add('paused'); if (action === 'resume') document.body.classList.remove('paused');   // 즉시 반영
+  $('modmsg').textContent = { pause: '⏸ 일시정지했어요 — 참가자 폰 입력창이 잠깁니다', resume: '▶ 다시 열었어요', clear: '🧹 화면을 비웠어요', hide: '메시지를 가렸어요' }[action] || '';
+}
 $('pause').onclick = () => mod('pause'); $('resume').onclick = () => mod('resume');
 $('clear').onclick = () => { if (confirm('지금까지의 메시지를 화면에서 모두 지울까요?')) { mod('clear').then(() => { $('feed').innerHTML = ''; }); } };
 $('feed').onclick = e => { const b = e.target.closest('.x'); if (b && PIN) { mod('hide', +b.dataset.id); b.closest('.m').remove(); } };
