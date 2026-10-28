@@ -81,7 +81,6 @@
   $('slot-again').onclick = spin;
   $('slot-close').onclick = () => { clearInterval(timer); $('roulette').hidden = true; };
   $('roulette').addEventListener('click', e => { if (e.target === $('roulette')) $('slot-close').click(); });
-  $('random-btn').onclick = openRoulette;
   document.querySelectorAll('[data-random]').forEach(b => b.onclick = openRoulette);
   if (new URLSearchParams(location.search).get('random')) { history.replaceState(null, '', location.pathname); openRoulette(); }
 
