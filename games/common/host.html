@@ -30,6 +30,10 @@
   .pairs .p .m{font-size:28px;width:40px;text-align:center}.pairs .p .r{margin-left:auto;color:var(--navy);font-variant-numeric:tabular-nums}
   .pairs .p.top{background:#fff1e0}
   .host textarea{min-height:220px;font-size:15px}
+  .wm{display:flex;flex-wrap:wrap;gap:6px}.wm span{background:#fff1e0;border-radius:999px;padding:5px 12px;font-weight:700;font-size:14px}.wm span b{color:var(--orange);margin-left:4px}
+  .wg{display:grid;gap:6px}.wg .r{display:flex;gap:10px;align-items:baseline;padding:8px 10px;border-radius:10px;background:#f5f6fb;font-size:14px}
+  .wg .r .q{min-width:140px;font-weight:700}.wg .r .pk{border-radius:999px;padding:2px 9px;color:#fff;font-size:12px;font-weight:800;white-space:nowrap}.wg .r .pk.a{background:#2f80ed}.wg .r .pk.b{background:#ED911A}.wg .r .pk.none{background:#9ca3af}
+  .wg .r .nm{flex:1;color:var(--ink)}.wg .r .nm small{color:var(--muted)}
   .btn.ghost.preset-select{appearance:none;-webkit-appearance:none;padding-right:30px;line-height:1.5;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23373282' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center;cursor:pointer}
 </style>
 </head>
@@ -105,7 +109,12 @@
   <div class="card winner">
     <div class="muted">🤝 가장 많이 겹친 짝</div>
     <div class="pairs" id="pairs"></div>
-    <p class="muted" style="margin-top:16px">각자 폰에서 "나와 가장 잘 맞는 사람 TOP 5"를 확인하세요</p>
+    <p class="muted" style="margin-top:16px">각자 폰에서는 문항별로 "나와 같은 편" 명단을 볼 수 있어요</p>
+    <div class="card" style="margin-top:18px;text-align:left;max-width:760px;margin-left:auto;margin-right:auto">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>👤 참가자별 보기</b><select id="who" style="flex:1;min-width:160px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font:inherit"></select></div>
+      <div id="who-matches" style="margin-top:12px"></div>
+      <div id="who-groups" class="wg" style="margin-top:10px"></div>
+    </div>
     <div class="controls">
       <button class="btn ghost" id="again">같은 참가자로 다시</button>
       <button class="btn" id="newroom">새 방 만들기</button>
@@ -285,6 +294,20 @@ async function finish() {
   const medals = ['🥇', '🥈', '🥉', '4', '5'];
   $('pairs').innerHTML = (data || []).length ? data.map((p, i) => `<div class="p ${i === 0 ? 'top' : ''}"><span class="m">${medals[i]}</span>${esc(p.a)} <span style="color:var(--orange)">&</span> ${esc(p.b)}<span class="r">${p.same}/${p.total} 일치</span></div>`).join('') : '<p class="muted">답이 모자라 짝을 못 찾았어요</p>';
   confetti();
+  // 참가자별 보기: 전체 답을 한 번 받아 두고 선택한 사람 기준으로 계산
+  const [{ data: ans }, { data: ps }] = await Promise.all([sb.from('cm_answers').select('q_no,player_id,choice').eq('room_code', code), sb.from('cm_players').select('id,name').eq('room_code', code).order('joined_at')]);
+  $('who').innerHTML = '<option value="">사람을 고르세요</option>' + (ps || []).map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  $('who').onchange = () => {
+    const pid = +$('who').value; $('who-matches').innerHTML = ''; $('who-groups').innerHTML = ''; if (!pid) return;
+    const name = {}; (ps || []).forEach(p => name[p.id] = p.name);
+    const mine = {}; (ans || []).filter(x => x.player_id === pid).forEach(x => mine[x.q_no] = x.choice);
+    const byQ = {}; (ans || []).forEach(x => { (byQ[x.q_no] = byQ[x.q_no] || []).push(x); });
+    // 가장 많이 겹친 사람 순
+    const score = {}; (ans || []).forEach(x => { if (x.player_id === pid || mine[x.q_no] == null) return; const s = score[x.player_id] = score[x.player_id] || { same: 0, tot: 0 }; s.tot++; if (x.choice === mine[x.q_no]) s.same++; });
+    const ranked = Object.entries(score).sort((a, b) => b[1].same - a[1].same || b[1].tot - a[1].tot).slice(0, 8);
+    $('who-matches').innerHTML = ranked.length ? `<div class="muted" style="font-size:13px;margin-bottom:6px">가장 많이 겹친 사람</div><div class="wm">${ranked.map(([id, s]) => `<span>${esc(name[id] || '?')}<b>${s.same}/${s.tot}</b></span>`).join('')}</div>` : '<span class="muted">비교할 답이 없어요</span>';
+    $('who-groups').innerHTML = questions.map((q, i) => { const m = mine[i], same = (byQ[i] || []).filter(x => x.choice === m && x.player_id !== pid).map(x => name[x.player_id] || '?'); return `<div class="r"><span class="q">${esc(q.q)}</span><span class="pk ${m || 'none'}">${esc(m ? q[m] : '답 안 함')}</span><span class="nm">${m ? (same.length ? esc(same.join(', ')) : '<small>혼자</small>') : ''}</span></div>`; }).join('');
+  };
 }
 $('again').onclick = async () => { await rpc('cm_set_phase', { p_phase: 'lobby' }); enterLobby(); };
 $('newroom').onclick = () => location.reload();
