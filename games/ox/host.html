@@ -8,6 +8,8 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <link rel="stylesheet" href="ox.css">
 <style>
+  .btn.ghost.sample-select{appearance:none;-webkit-appearance:none;padding-right:30px;line-height:1.5;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23373282' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center;cursor:pointer}
+
   .timer{width:100%;max-width:720px;height:14px;background:#eef0fa;border-radius:7px;overflow:hidden;margin:6px 0 4px}
   .timer b{display:block;height:100%;background:var(--navy);width:100%;transition:width .25s linear}
   .timer.low b{background:var(--x)}
@@ -42,7 +44,7 @@
       <p class="muted">한 줄에 한 문제, <b>문제|정답</b> 형식. 정답이 여럿이면 <b>/</b>로 구분 (예: <code>세계에서 가장 긴 강은?|나일강/나일</code>). O/X 문제는 <code>|O</code>, <code>|X</code>. 띄어쓰기·대소문자·문장부호(.,-!? 등)는 무시하고 채점하니 그런 변형은 따로 쓸 필요가 없어요. <b>/</b>는 표현 자체가 다른 답(예: <code>나일강/Nile</code>, <code>대한민국/한국</code>)에만 쓰세요.</p>
       <textarea id="qs"></textarea>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
-        <button class="btn sm ghost" id="sample">예시 문제 넣기</button>
+        <select id="sample" class="btn sm ghost sample-select"><option value="">예시 추가</option></select>
         <button class="btn sm ghost" id="shuffle">순서 섞기</button>
         <span class="muted" id="qcount"></span>
       </div>
@@ -128,18 +130,74 @@
 <script>
 if (!window.sb) throw new Error('Supabase 설정 없음');
 const $ = id => document.getElementById(id);
-const SAMPLE = `과학기술정책연구원의 영문 약자는?|STEPI
+const SAMPLES = {
+  '일반 상식': `과학기술정책연구원의 영문 약자는?|STEPI
 STEPI가 있는 도시는?|세종/세종시/세종특별자치시
 한글날은 몇 월 며칠? (예: 3월 1일)|10월 9일
 세계에서 가장 긴 강은?|나일강/나일
 대한민국 국회의원 정원은 몇 명?|300명/300
 지구에서 가장 가까운 별은?|태양
 물의 화학식은?|H2O
-코끼리는 뛰지 못한다|O
+대한민국에서 가장 높은 산은?|한라산
+태양계에서 가장 큰 행성은?|목성
+훈민정음을 만든 왕은?|세종대왕/세종
+올림픽은 몇 년마다 열릴까?|4년/4
+우리나라 헌법재판소 재판관은 모두 몇 명?|9명/9
+빛의 삼원색이 아닌 것: 빨강·초록·파랑·노랑 중?|노랑
+대한민국의 국화는?|무궁화
+1 광년은 거리·시간 중 무엇의 단위?|거리
+세계에서 인구가 가장 많은 나라는? (2024년 기준)|인도
+피아노 건반은 모두 몇 개?|88개/88
+지구의 자전 주기는 약 몇 시간?|24시간/24
+원주율 3.14… 의 기호는? (그리스 문자 이름)|파이
+주기율표 1번 원소는?|수소/H`,
+  '넌센스': `왕이 넘어지면?|킹콩
+세상에서 가장 빠른 닭은?|후다닭/후다닥
+개가 사람을 가르치면?|개인지도
+신발이 화나면?|신발끈/신발 끈
+소가 웃는 소리는?|우하하
+사람들이 가장 좋아하는 소는?|미소
+세상에서 가장 뜨거운 과일은?|천도복숭아/천도
+바나나가 웃으면?|바나나킥
+오리가 얼면?|언덕
+아몬드가 죽으면?|다이아몬드
+도둑이 가장 싫어하는 아이스크림은?|누가바
+미소의 반대말은?|당기소
+식인종이 밥 대신 먹는 것은?|사람/인간
+눈이 녹으면 뭐가 될까?|물/봄
+노인이 가장 좋아하는 폭포는?|나이아가라/나이아가라폭포`,
+  '직장 생활': `연차휴가를 미리 당겨 쓰는 것을 흔히 뭐라고 할까? (OO연차)|선연차/선차
+회의 끝에 "다음에 다시 보자"는 뜻의 두 글자 줄임말, '추후 논의'는?|추논
+'아이스 아메리카노'의 네 글자 줄임말은?|아아
+업무용 메신저에서 "확인했습니다"를 뜻하는 가장 흔한 한 글자 답은?|넵/네
+4대 보험이 아닌 것: 국민연금·건강보험·고용보험·자동차보험 중?|자동차보험
+근로기준법상 1주 법정 근로시간은 몇 시간?|40시간/40
+'TMI'는 무엇의 약자? (영어 세 단어 중 마지막 단어)|Information/인포메이션
+'ASAP'의 뜻은? (한글 네 글자)|최대한빨리/가능한빨리/빨리
+출장 뒤 쓰는 '복명서'의 복명은 '돌아와서 무엇을 한다'는 뜻? (한 글자)|명/보고
+'워라밸'의 '밸'은 무엇의 줄임말? (영어)|balance/밸런스
+직장에서 '번아웃'은 어떤 상태? (두 글자: ㅅㅈ)|소진/탈진
+연말정산을 하는 달은?|1월/2월
+'PT'는 프레젠테이션의 줄임말이다|O
+공문의 '시행일자'는 문서를 보낸 날짜다|O
+'결재'와 '결제' 중 돈을 치르는 쪽은?|결제`,
+  'OX 퀴즈': `코끼리는 뛰지 못한다|O
 토마토는 과일이다|O
 우리 원의 CI 색은 네이비와 오렌지다|O
-'부캉이'는 어느 도시에 나타난 상어?|부산/부산광역시
-올해 추석은 몇 월? (숫자만)|10/10월`;
+'부캉이'는 부산에 나타난 상어의 별명이다|O
+금붕어의 기억력은 3초다|X
+번개는 같은 곳에 두 번 치지 않는다|X
+만리장성은 우주에서 맨눈으로 보인다|X
+타조는 위험하면 머리를 모래에 묻는다|X
+꿀은 상하지 않는다|O
+사람의 뼈는 어른이 되면 206개다|O
+바나나는 나무에서 자란다|X
+세종대왕은 조선의 4대 왕이다|O
+대한민국 지폐 중 가장 큰 단위는 5만 원이다|O
+에베레스트는 남미에 있다|X
+독도는 경상북도 소속이다|O`
+};
+const SAMPLE = SAMPLES['일반 상식'];
 
 let PIN = null, code = '', questions = [], qi = -1, players = [], answers = [], phase = 'lobby', channel = null, pollTimer = null, tick = null, LIMIT = 30, qStart = 0, revealed = false;
 STEPI_PIN.require().then(p => { PIN = p; });
@@ -147,7 +205,8 @@ const err = e => (e.message || '').replace(/^.*?: /, '');
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // ---- 준비 ----
-$('sample').onclick = () => { $('qs').value = SAMPLE; count(); };
+Object.keys(SAMPLES).forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = `${k} (${SAMPLES[k].split('\n').length}문제)`; $('sample').appendChild(o); });
+$('sample').onchange = () => { const k = $('sample').value; if (!k) return; const cur = $('qs').value.trim(); $('qs').value = (cur ? cur + '\n' : '') + SAMPLES[k]; count(); $('sample').value = ''; };
 $('shuffle').onclick = () => { $('qs').value = parse().sort(() => Math.random() - .5).map(q => q.raw).join('\n'); count(); };
 $('qs').oninput = count;
 function parse() {
