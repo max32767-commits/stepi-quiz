@@ -9,10 +9,13 @@
 <style>
   body{background:var(--navy);color:#fff;overflow:hidden}
   .wrap{height:100dvh;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;padding:20px 24px;box-sizing:border-box}
+  .wrap>section{display:flex;flex-direction:column;min-height:0}
   @media(max-width:900px){.wrap{grid-template-columns:1fr;overflow:auto}}
   .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
   .head h1{font-size:clamp(24px,3vw,40px);font-weight:900}
-  .feed{display:flex;flex-direction:column;justify-content:flex-end;gap:10px;height:calc(100% - 64px);overflow:hidden;padding-bottom:56px;box-sizing:border-box}
+  .feed{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;overflow-y:auto;scrollbar-width:none;padding-bottom:60px;box-sizing:border-box}
+  .feed::-webkit-scrollbar{display:none}
+  .feed>.m:first-child{margin-top:auto}   /* 메시지가 적을 땐 아래쪽부터 채움 */
   .m{align-self:flex-start;max-width:92%;background:rgba(255,255,255,.1);border-radius:18px 18px 18px 6px;padding:12px 18px;font-size:clamp(18px,2.2vw,30px);font-weight:600;line-height:1.35;word-break:break-word;animation:pop .25s ease-out;position:relative}
   .m:nth-child(even){align-self:flex-end;border-radius:18px 18px 6px 18px;background:rgba(237,145,26,.22)}
   .m .n{font-size:.6em;font-weight:800;color:#ffd166;display:block;margin-bottom:2px}
@@ -78,8 +81,10 @@ function add(m) {
   lastId = Math.max(lastId, m.id); count++; $('cnt').textContent = count;
   const el = document.createElement('div'); el.id = 'm' + m.id; el.className = 'm' + (isEmojiOnly(m.text) ? ' big' : '');
   el.innerHTML = (isEmojiOnly(m.text) ? `${esc(m.text)}<span class="n" style="text-align:center">${esc(m.name)}</span>` : `<span class="n">${esc(m.name)}</span>${esc(m.text)}`) + `<button class="x" data-id="${m.id}" title="가리기">✕</button>`;
-  $('feed').appendChild(el);
-  while ($('feed').children.length > 14) $('feed').firstChild.remove();
+  const f = $('feed'); f.appendChild(el);
+  while (f.children.length > 30) f.firstChild.remove();
+  f.scrollTop = f.scrollHeight;   // 항상 최신 메시지가 보이게
+  requestAnimationFrame(() => { f.scrollTop = f.scrollHeight; });
 }
 async function init() {
   const { data } = await sb.from('chat_messages').select('*').eq('room', ROOM).eq('hidden', false).order('id', { ascending: false }).limit(14);
