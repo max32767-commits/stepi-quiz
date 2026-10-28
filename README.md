@@ -95,7 +95,7 @@ Supabase 프로젝트 `stepi-quiz`에 연결돼 있고(`shared/supabase-config.j
 ## 공통점 찾기 사용법
 
 - 진행자: `games/common/host.html` (PIN) → 질문 목록(`질문 | 왼쪽 답 | 오른쪽 답`, 기본 17문항 내장) → **방 만들기** → QR 입장 → **첫 질문 시작** → 참가자가 폰에서 고르면 **결과 보기**(같은 답끼리 명단·비율) → **다음 질문** … → 마지막에 **가장 많이 겹친 짝 TOP 5**
-- 참가자 폰: 답 마감 후 자기 편 인원·이름이 보이고, 끝나면 "나와 가장 잘 맞는 사람 TOP 5"(일치 수·%)가 나온다. 점수 없음.
+- 참가자 폰: 답 마감 후 자기 편 인원·이름이 보이고, 끝나면 문항마다 "나와 같은 답을 고른 사람" 명단(펼쳐 보기)과 반대편 명단, 답이 전부 같은 사람이 나온다. 점수 없음. 진행자 화면 「예시 추가」로 음식 취향·여행·직장 생활·성격 세트(각 15문항)를 덧붙일 수 있다.
 - 테이블 cm_rooms / cm_players / cm_answers, RPC cm_create_room(pin, questions) / cm_join / cm_answer / cm_set_phase / cm_tally / cm_matches / cm_top_pairs
 
 ## 눈치 게임 · 인간 스톱워치 메모

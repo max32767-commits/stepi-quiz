@@ -30,6 +30,7 @@
   .pairs .p .m{font-size:28px;width:40px;text-align:center}.pairs .p .r{margin-left:auto;color:var(--navy);font-variant-numeric:tabular-nums}
   .pairs .p.top{background:#fff1e0}
   .host textarea{min-height:220px;font-size:15px}
+  .btn.ghost.preset-select{appearance:none;-webkit-appearance:none;padding-right:30px;line-height:1.5;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23373282' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center;cursor:pointer}
 </style>
 </head>
 <body class="host">
@@ -43,7 +44,7 @@
     <div class="card">
       <h2>질문 목록 <span class="muted" style="font-size:14px;font-weight:500">한 줄에 하나 · <code>질문 | 왼쪽 답 | 오른쪽 답</code></span></h2>
       <textarea id="qs"></textarea>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="btn sm ghost" id="defaults">기본 질문 다시 넣기</button><button class="btn sm ghost" id="shuffleQ">순서 섞기</button><span class="muted" id="qcount" style="align-self:center;font-size:13px"></span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><select id="preset" class="btn sm ghost preset-select"><option value="">예시 추가</option></select><button class="btn sm ghost" id="defaults">기본 질문만 남기기</button><button class="btn sm ghost" id="shuffleQ">순서 섞기</button><span class="muted" id="qcount" style="align-self:center;font-size:13px"></span></div>
     </div>
     <div class="card">
       <h2>진행 방법</h2>
@@ -147,6 +148,71 @@ function parseQs() { return $('qs').value.split('\n').map(l => l.split('|').map(
 function countQ() { $('qcount').textContent = parseQs().length + '문항'; }
 $('qs').oninput = () => { countQ(); try { localStorage.setItem('cm:qs', $('qs').value); } catch (e) {} };
 $('defaults').onclick = () => { $('qs').value = DEFAULTS; $('qs').dispatchEvent(new Event('input')); };
+// 예시 세트 (이상형 월드컵 주제와 같은 결로 양자택일 질문) — 고르면 아래에 덧붙는다
+const PRESETS = {
+  '음식 취향': `중국집 가면 | 짜장 | 짬뽕
+치킨은 | 후라이드 | 양념
+탕수육은 | 부먹 | 찍먹
+라면에 | 계란 | 치즈
+삼겹살엔 | 소주 | 맥주
+떡볶이는 | 밀떡 | 쌀떡
+냉면은 | 물냉 | 비냉
+김치찌개 vs 된장찌개 | 김치찌개 | 된장찌개
+피자 도우는 | 씬 | 두꺼운
+커피는 | 아아 | 뜨아
+초밥 vs 회 | 초밥 | 회
+디저트는 | 빵 | 떡
+파인애플 피자 | 찬성 | 반대
+회식 2차는 | 노래방 | 호프집
+아침은 | 꼭 먹음 | 거름`,
+  '여행·여가': `휴가는 | 산 | 바다
+여행 스타일 | 계획형 | 즉흥형
+해외 vs 국내 | 해외 | 국내
+숙소는 | 호텔 | 펜션·캠핑
+여행 가면 | 맛집 투어 | 관광 명소
+워크숍 장소는 | 부산 | 제주
+주말엔 | 집콕 | 밖으로
+영화는 | 영화관 | OTT
+운동은 | 헬스 | 러닝·산책
+노래방 가면 | 발라드 | 댄스·힙합
+게임은 | 모바일 | 콘솔·PC
+쉬는 날 아침 | 늦잠 | 일찍 기상
+카페 가면 | 창가 | 구석
+겨울엔 | 스키 | 온천
+비 오는 날 | 좋음 | 싫음`,
+  '직장 생활': `메신저 답장은 | 바로바로 | 몰아서
+업무 메모는 | 손글씨 | 디지털
+회의는 | 대면 | 화상
+점심은 | 팀이랑 | 혼자
+출근 복장은 | 편하게 | 단정하게
+업무 시작은 | 메일부터 | 커피부터
+야근 vs 새벽 출근 | 야근 | 새벽 출근
+자리 정리는 | 깔끔 | 자유분방
+회의 자료는 | PPT | 한 장 요약
+퇴근 후 업무 연락 | 확인함 | 안 봄
+업무 음악 | 듣는다 | 안 듣는다
+출장은 | 설렘 | 피곤
+새 프로젝트 | 신남 | 걱정
+칭찬 받으면 | 티 남 | 쿨한 척
+연차는 | 길게 한 번 | 짧게 여러 번`,
+  '성격·습관': `알람은 | 한 번에 기상 | 다섯 번 미루기
+길 찾기 | 지도 앱 | 감으로
+전화 vs 문자 | 전화 | 문자
+계획은 | 리스트 작성 | 머릿속
+새 물건은 | 바로 개봉 | 아껴 두기
+폰 배터리 | 항상 충전 | 10%까지 버팀
+결정은 | 빠르게 | 신중하게
+MBTI | E | I
+약속 시간 | 10분 전 도착 | 딱 맞춰
+선물은 | 실용적인 것 | 감성적인 것
+영수증 | 모음 | 바로 버림
+단톡방 | 눈팅 | 활발
+새해 계획 | 세움 | 안 세움
+이사 짐은 | 미리미리 | 전날 밤
+강아지 vs 고양이 | 강아지 | 고양이`
+};
+Object.keys(PRESETS).forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = `${k} (${PRESETS[k].split('\n').length}문항)`; $('preset').appendChild(o); });
+$('preset').onchange = () => { const k = $('preset').value; if (!k) return; const cur = $('qs').value.trim(); $('qs').value = (cur ? cur + '\n' : '') + PRESETS[k]; $('qs').dispatchEvent(new Event('input')); $('preset').value = ''; };
 $('shuffleQ').onclick = () => { const l = $('qs').value.split('\n').filter(x => x.trim()); for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; } $('qs').value = l.join('\n'); $('qs').dispatchEvent(new Event('input')); };
 countQ();
 

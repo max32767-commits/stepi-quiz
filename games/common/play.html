@@ -22,6 +22,15 @@
   .matches .m .md{font-size:24px;width:32px;text-align:center}.matches .m .r{margin-left:auto;color:var(--navy);font-variant-numeric:tabular-nums}
   .matches .m.top{background:#fff1e0}
   .pct{font-size:40px;font-weight:900;color:var(--orange);text-align:center}
+  .groups{display:grid;gap:8px;margin-top:12px}
+  .g{border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .g summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;align-items:center;gap:10px;font-weight:700}
+  .g summary::-webkit-details-marker{display:none}
+  .g summary .q{flex:1;min-width:0;font-size:16px;text-align:left;margin:0;color:var(--ink);line-height:1.3}.g summary .q small{display:block;font-weight:600;color:var(--muted);font-size:12px;margin-top:2px}
+  .g summary .pick{border-radius:999px;padding:4px 10px;font-size:13px;font-weight:800;color:#fff;white-space:nowrap}.g summary .pick.a{background:#2f80ed}.g summary .pick.b{background:#ED911A}.g summary .pick.none{background:#9ca3af}
+  .g .names{padding:0 14px 12px;display:flex;flex-wrap:wrap;gap:6px}.g .names span{background:#f5f6fb;border-radius:999px;padding:5px 11px;font-size:14px;font-weight:600}
+  .g .names .other{color:var(--muted);font-size:12px;flex-basis:100%;margin-top:4px}
+  .g.same-all summary{background:#fff1e0}
 </style>
 </head>
 <body>
@@ -55,9 +64,9 @@
   </section>
 
   <section id="done" class="card hidden">
-    <h2 style="text-align:center">🤝 나와 가장 잘 맞는 사람</h2>
+    <h2 style="text-align:center">🤝 나와 같은 편이었던 사람들</h2>
     <p class="muted" style="text-align:center;margin:4px 0 0" id="done-sub"></p>
-    <div class="matches" id="matches"></div>
+    <div class="groups" id="groups"></div>
   </section>
 </div>
 
@@ -130,10 +139,25 @@ async function pick(k) {
 $('optA').onclick = () => pick('a'); $('optB').onclick = () => pick('b');
 async function showDone() {
   show('done');
-  const { data } = await sb.rpc('cm_matches', { p_code: code, p_pid: me.id, p_limit: 5 });
-  const medals = ['🥇', '🥈', '🥉', '4', '5'], mineN = Object.keys(myPick).length;
-  $('done-sub').textContent = mineN ? `내가 답한 ${mineN}문항 기준` : '답한 문항이 없어요';
-  $('matches').innerHTML = (data || []).length ? data.map((m, i) => `<div class="m ${i === 0 ? 'top' : ''}"><span class="md">${medals[i]}</span>${esc(m.name)}<span class="r">${m.same}/${m.total} · ${Math.round(m.same / (m.total || 1) * 100)}%</span></div>`).join('') : '<p class="muted" style="text-align:center">비교할 사람이 없어요</p>';
+  // 전체 답을 받아 질문마다 '나와 같은 편' 명단을 만든다 (최대 50명 × 20문항 수준이라 폰에서 바로 계산)
+  const [{ data: ans }, { data: ps }] = await Promise.all([sb.from('cm_answers').select('q_no,player_id,choice').eq('room_code', code), sb.from('cm_players').select('id,name').eq('room_code', code)]);
+  const name = {}; (ps || []).forEach(p => name[p.id] = p.name);
+  const byQ = {}; (ans || []).forEach(x => { (byQ[x.q_no] = byQ[x.q_no] || []).push(x); });
+  const qs_ = room.questions || [], mineN = Object.keys(myPick).length;
+  $('done-sub').textContent = mineN ? `질문을 누르면 같은 답을 고른 사람이 보여요 · 내가 답한 ${mineN}문항` : '답한 문항이 없어요';
+  // 모든 문항에서 나와 같은 답을 고른 사람(완전 일치) 먼저
+  const others = (ps || []).filter(p => p.id !== me.id);
+  const sameAll = others.filter(p => { let n = 0, tot = 0; for (const q in myPick) { const t = (byQ[q] || []).find(x => x.player_id === p.id); if (!t) continue; tot++; if (t.choice === myPick[q]) n++; } return tot >= Math.min(3, mineN) && n === tot && tot > 0; });
+  let html = sameAll.length ? `<details class="g same-all" open><summary><span class="q">🎯 답이 전부 같은 사람<small>답한 문항이 모두 일치</small></span><span class="pick a" style="background:var(--navy)">${sameAll.length}명</span></summary><div class="names">${sameAll.map(p => `<span>${esc(p.name)}</span>`).join('')}</div></details>` : '';
+  html += qs_.map((q, i) => {
+    const mine = myPick[i], rows = byQ[i] || [];
+    const same = rows.filter(x => x.choice === mine && x.player_id !== me.id).map(x => name[x.player_id] || '?');
+    const otherN = rows.filter(x => x.choice && x.choice !== mine).length;
+    const label = mine ? q[mine] : '답 안 함';
+    return `<details class="g"><summary><span class="q">${esc(q.q)}<small>${mine ? `같은 편 ${same.length}명 · 반대편 ${otherN}명` : '이 문항은 답하지 않았어요'}</small></span><span class="pick ${mine || 'none'}">${esc(label)}</span></summary>
+      <div class="names">${mine ? (same.length ? same.map(n => `<span>${esc(n)}</span>`).join('') : '<span style="background:none;color:var(--muted)">나 혼자였어요 😎</span>') : ''}${mine && otherN ? `<span class="other">반대편(${esc(q[mine === 'a' ? 'b' : 'a'])}): ${esc(rows.filter(x => x.choice && x.choice !== mine).map(x => name[x.player_id] || '?').join(', '))}</span>` : ''}</div></details>`;
+  }).join('');
+  $('groups').innerHTML = html || '<p class="muted" style="text-align:center">결과가 없어요</p>';
 }
 </script>
 </body>
